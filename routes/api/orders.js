@@ -8,40 +8,25 @@ const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
 
 /* GET users listing. */
-router.post('/signup', async function(req, res, next) {
-  const userData = {
-      username: req.body.user_name,
-      email: req.body.user_email,
-      password: req.body.user_password
-  }
-  // check if user exists
-  let result = await axios.get(`http://${ENDPOINTS.DATACENTER_DEV}/user?user_name=${userData.username}`);
-  if (result && result.data && result.data.user_name) {
-      return res.status(301).redirect('/login');
-  }
-  const hashPassword = bcrypt.hashSync(userData.password, salt);
-  let signupResult = await axios.post(`http://${ENDPOINTS.DATACENTER_DEV}/user`, {
-    "user_name": userData.username,
-    "email": userData.email,
-    "user_wallet_id": "001",
-    "created_date": new Date(),
-    "order_ids": [
-    ],
-    "created_bid_ids": [
-    ],
-    "account_balance": 10000,
-    "password": hashPassword,
-    "is_valid_user": false,
-    "customized_field": {
-      "prefered_culture": "en-us"
+router.post('/', async function(req, res, next) {
+    const token = req.cookies.access_token;
+    const authData = jwt.verify(token, 'yolofootball');
+    const userName = authData.data;
+    const postbody = req.body;
+    console.log(req.body);
+    const orderToCreate = {
+        fixture_id: postbody.fixture_id,
+        bet_result: postbody.bet_result,
+        odd_mount: postbody.odd_mount,
+        fixture_state: postbody.fixture_state,
+        user_name: userName
     }
-  });
-  if (signupResult.status == 200) {
-      const token = jwt.sign({data: userData.username}, 'yolofootball', { expiresIn: '7d' });
-      console.log(token);
-      res.cookie("access_token", token).status(200).json({message: 'succeed'});
-  } else {
-      return res.status(301).redirect('/login');
+    console.log(orderToCreate); 
+  // check if user exists
+  let result = await axios.post(`http://${ENDPOINTS.DATACENTER_DEV}/orders/`, orderToCreate);
+  console.log(result);
+  if (result && result.data && result.data.created_by) {
+      return res.status(200).json('succeed');
   }
 });
 

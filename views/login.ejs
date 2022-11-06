@@ -7,5 +7,12 @@
   <body>
     <h1><%= title %></h1>
     <p>Welcome to <%= title %></p>
+    <form action="/api/users/signin" method="POST">
+      <label for="user_name">user_name:</label><br>
+      <input type="text" id="user_name" name="user_name" value="John"><br>
+      <label for="user_password">user_password:</label><br>
+      <input type="text" id="user_password" name="user_password" value="Doe"><br><br>
+      <input type="submit" value="Submit">
+    </form> 
   </body>
 </html>

@@ -5,7 +5,7 @@ const swaggerDocument = require('./openapi.json');
 const authentication = require('../middlewares/authentication');
 
 /* GET home page. */
-router.get('/', authentication, function (req, res, next) {
+router.get('/', function (req, res, next) {
   res.render('index', { title: 'Express' });
 });
 
@@ -14,6 +14,10 @@ router.get('/api-docs', swaggerUi.setup(swaggerDocument));
 
 router.get('/login', function (req, res, next) {
   res.render('login', {title: 'login page'});
+});
+
+router.get('/profile', authentication, function (req, res, next) {
+  res.render('profile', {title: 'profile page'});
 });
 
 module.exports = router;
