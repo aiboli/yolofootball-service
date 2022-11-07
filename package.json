@@ -17,7 +17,9 @@
     "express-jwt": "^7.7.7",
     "http-errors": "~1.6.3",
     "jsonwebtoken": "^8.5.1",
+    "memory-cache": "^0.2.0",
     "morgan": "~1.9.1",
+    "node-cache": "^5.1.2",
     "swagger-jsdoc": "^6.2.5",
     "swagger-ui-express": "^4.5.0"
   }

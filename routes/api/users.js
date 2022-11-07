@@ -8,16 +8,16 @@ const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
 
 /* GET users listing. */
-router.post('/signup', async function(req, res, next) {
+router.post('/signup', async function (req, res, next) {
   const userData = {
-      username: req.body.user_name,
-      email: req.body.user_email,
-      password: req.body.user_password
+    username: req.body.user_name,
+    email: req.body.user_email,
+    password: req.body.user_password
   }
   // check if user exists
   let result = await axios.get(`http://${ENDPOINTS.DATACENTER_DEV}/user?user_name=${userData.username}`);
   if (result && result.data && result.data.user_name) {
-      return res.status(301).redirect('/login');
+    return res.status(301).redirect('/login');
   }
   const hashPassword = bcrypt.hashSync(userData.password, salt);
   let signupResult = await axios.post(`http://${ENDPOINTS.DATACENTER_DEV}/user`, {
@@ -37,35 +37,35 @@ router.post('/signup', async function(req, res, next) {
     }
   });
   if (signupResult.status == 200) {
-      const token = jwt.sign({data: userData.username}, 'yolofootball', { expiresIn: '7d' });
-      console.log(token);
-      res.cookie("access_token", token).status(200).json({message: 'succeed'});
+    const token = jwt.sign({ data: userData.username, exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), }, 'yolofootball');
+    console.log(token);
+    res.cookie("access_token", token).status(200).json({ message: 'succeed' });
   } else {
-      return res.status(301).redirect('/login');
+    return res.status(301).redirect('/login');
   }
 });
 
-router.post('/signin', async function(req, res, next) {
-    const userData = {
-        username: req.body.user_name,
-        password: req.body.user_password
-    }
-    // check if user exists
-    let result = await axios.get(`http://${ENDPOINTS.DATACENTER_DEV}/user?user_name=${userData.username}`);
-    if (result && !result.data && !result.data.user_name) {
-        return res.status(401).redirect('/login');
-    }
-    const currentpassword = result.data.password;
-    console.log(currentpassword);
-    console.log(userData.password);
-    //const hashPassword = bcrypt.hashSync(userData.password, salt);
-    const passwordResult = await bcrypt.compare(userData.password, currentpassword);
-    console.log(passwordResult);
-    if (!passwordResult) {
-        return res.status(401).redirect('/login');
-    }
-    const token = jwt.sign({data: userData.username}, 'yolofootball', { expiresIn: '7d' });
-    return res.cookie("access_token", token).status(200).json({message: 'succeed'});
-  });
+router.post('/signin', async function (req, res, next) {
+  const userData = {
+    username: req.body.user_name,
+    password: req.body.user_password
+  }
+  // check if user exists
+  let result = await axios.get(`http://${ENDPOINTS.DATACENTER_DEV}/user?user_name=${userData.username}`);
+  if (result && !result.data && !result.data.user_name) {
+    return res.status(401).redirect('/login');
+  }
+  const currentpassword = result.data.password;
+  console.log(currentpassword);
+  console.log(userData.password);
+  //const hashPassword = bcrypt.hashSync(userData.password, salt);
+  const passwordResult = await bcrypt.compare(userData.password, currentpassword);
+  console.log(passwordResult);
+  if (!passwordResult) {
+    return res.status(401).redirect('/login');
+  }
+  const token = jwt.sign({ data: userData.username, exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), }, 'yolofootball');
+  return res.cookie("access_token", token).status(200).json({ message: 'succeed' });
+});
 
 module.exports = router;

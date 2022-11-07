@@ -6,14 +6,14 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
+const authentication = require('../../middlewares/authentication');
 
 /* GET users listing. */
-router.post('/', async function(req, res, next) {
-    const token = req.cookies.access_token;
-    const authData = jwt.verify(token, 'yolofootball');
+router.post('/', authentication, async function (req, res, next) {
+    const accessToken = req.cookies.access_token;
+    const authData = jwt.verify(accessToken, 'yolofootball');
     const userName = authData.data;
     const postbody = req.body;
-    console.log(req.body);
     const orderToCreate = {
         fixture_id: postbody.fixture_id,
         bet_result: postbody.bet_result,
@@ -21,36 +21,37 @@ router.post('/', async function(req, res, next) {
         fixture_state: postbody.fixture_state,
         user_name: userName
     }
-    console.log(orderToCreate); 
-  // check if user exists
-  let result = await axios.post(`http://${ENDPOINTS.DATACENTER_DEV}/orders/`, orderToCreate);
-  console.log(result);
-  if (result && result.data && result.data.created_by) {
-      return res.status(200).json('succeed');
-  }
-});
-
-router.post('/signin', async function(req, res, next) {
-    const userData = {
-        username: req.body.user_name,
-        password: req.body.user_password
-    }
+    console.log(orderToCreate);
     // check if user exists
-    let result = await axios.get(`http://${ENDPOINTS.DATACENTER_DEV}/user?user_name=${userData.username}`);
-    if (result && !result.data && !result.data.user_name) {
-        return res.status(401).redirect('/login');
+    let result = await axios.post(`http://${ENDPOINTS.DATACENTER_DEV}/order/`, orderToCreate);
+    console.log(result);
+    if (result && result.data && result.data.created_by) {
+        return res.status(200).json(result.data);
+    } else {
+        return res.status(404).json('created order failed');
     }
-    const currentpassword = result.data.password;
-    console.log(currentpassword);
-    console.log(userData.password);
-    //const hashPassword = bcrypt.hashSync(userData.password, salt);
-    const passwordResult = await bcrypt.compare(userData.password, currentpassword);
-    console.log(passwordResult);
-    if (!passwordResult) {
-        return res.status(401).redirect('/login');
+});
+/**
+ * get user's by its status
+ */
+router.post('/getOrders', authentication, async function (req, res, next) {
+    console.log(req);
+    const accessToken = req.cookies.access_token;
+    const authData = jwt.verify(accessToken, 'yolofootball');
+    const userName = authData.data;
+    const userData = {
+        ids: JSON.parse(req.body.order_ids),
+        state: req.body.order_state, //pending, completed, canceled
+        created_by: userName
     }
-    const token = jwt.sign({data: userData.username}, 'yolofootball', { expiresIn: '7d' });
-    return res.cookie("access_token", token).status(200).json({message: 'succeed'});
-  });
+    console.log(userData);
+    // check if user exists
+    let result = await axios.post(`http://${ENDPOINTS.DATACENTER_DEV}/order/orders`, userData);
+    if (result && result.data) {
+        return res.status(200).json(result.data);
+    } else {
+        return res.status(404).json('get orders failed')
+    }
+});
 
 module.exports = router;

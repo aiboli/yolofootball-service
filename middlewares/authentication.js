@@ -10,7 +10,9 @@ const authorization = (req, res, next) => {
         console.log(data);
         // check if expired
         const expiredDate = data.exp;
-        if (new Date(expiredDate) <= new Date()) {
+        const td = new Date();
+        const ed = new Date(expiredDate * 1000);
+        if (ed <= td) {
             console.log('expired cookie');
             return res.sendStatus(403);
         }
