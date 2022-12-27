@@ -5,7 +5,7 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var NodeCache = require('node-cache');
 global.cache = new NodeCache();
-console.log(global.cache);
+//console.log(global.cache);
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');

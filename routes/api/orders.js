@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-var ENDPOINTS = require('../../endpoints/endpoints');
+var ENDPOINT_SELETOR = require('../../endpoints/endpoints');
 var axios = require('axios');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -23,7 +23,7 @@ router.post('/', authentication, async function (req, res, next) {
     }
     console.log(orderToCreate);
     // check if user exists
-    let result = await axios.post(`http://${ENDPOINTS.DATACENTER_DEV}/order/`, orderToCreate);
+    let result = await axios.post(`http://${ENDPOINT_SELETOR(req.app.get('env'))}/order/`, orderToCreate);
     console.log(result);
     if (result && result.data && result.data.created_by) {
         return res.status(200).json(result.data);
@@ -46,7 +46,7 @@ router.post('/getOrders', authentication, async function (req, res, next) {
     }
     console.log(userData);
     // check if user exists
-    let result = await axios.post(`http://${ENDPOINTS.DATACENTER_DEV}/order/orders`, userData);
+    let result = await axios.post(`http://${ENDPOINT_SELETOR(req.app.get('env'))}/order/orders`, userData);
     if (result && result.data) {
         return res.status(200).json(result.data);
     } else {
