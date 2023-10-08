@@ -22,4 +22,10 @@ const authorization = (req, res, next) => {
     }
 };
 
+const getUserDataFromToken = (token) => {
+    return jwt.verify(token, 'yolofootball');
+}
+
+
 module.exports = authorization;
+module.exports.getUserDataFromToken = getUserDataFromToken;
