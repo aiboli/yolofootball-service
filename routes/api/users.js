@@ -61,20 +61,27 @@ router.post("/signin", async function (req, res, next) {
     username: req.body.user_name,
     password: req.body.user_password,
   };
+  console.log(userData);
   // check if user exists
   let result = await axios.get(
     `http://${ENDPOINT_SELETOR(req.app.get("env"))}/user?user_name=${
       userData.username
     }`
   );
+  console.log(result);
   if (result && !result.data && !result.data.user_name) {
+    console.log("user not found");
     return res.status(401).redirect("/login");
   }
   const currentpassword = result.data.password;
   console.log(currentpassword);
   console.log(userData.password);
-  const hashPassword = bcrypt.hashSync(userData.password, salt);
-  const passwordResult = await bcrypt.compare(hashPassword, currentpassword);
+  //const hashPassword = bcrypt.hashSync(userData.password, salt);
+  //console.log(hashPassword);
+  const passwordResult = await bcrypt.compare(
+    userData.password,
+    currentpassword
+  );
   console.log(passwordResult);
   if (!passwordResult) {
     return res.status(401).redirect("/login");
