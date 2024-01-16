@@ -60,6 +60,7 @@ router.post("/signin", async function (req, res, next) {
   const userData = {
     username: req.body.user_name,
     password: req.body.user_password,
+    redirectURL: req.body.redirect_to,
   };
   console.log(userData);
   // check if user exists
@@ -76,8 +77,8 @@ router.post("/signin", async function (req, res, next) {
   const currentpassword = result.data.password;
   console.log(currentpassword);
   console.log(userData.password);
+  // no need to hash
   //const hashPassword = bcrypt.hashSync(userData.password, salt);
-  //console.log(hashPassword);
   const passwordResult = await bcrypt.compare(
     userData.password,
     currentpassword
@@ -96,7 +97,7 @@ router.post("/signin", async function (req, res, next) {
   return res
     .cookie("access_token", token)
     .status(200)
-    .json({ message: "succeed" });
+    .redirect(userData.redirectURL);
 });
 
 module.exports = router;
