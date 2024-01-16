@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>
+        <%= title %>
+    </title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+
+<body>
+    <h1>
+        <%= title %>
+    </h1>
+    <p>Welcome to <%= title %>
+    </p>
+    <form action="/api/users/signup" method="POST">
+        <h5>lets create a new account:</h5>
+        <label for="user_name">user_name:</label><br>
+        <input type="text" id="user_name" name="user_name" value=""><br>
+        <label for="user_email">user_name:</label><br>
+        <input type="text" id="user_email" name="user_email" value="test@gmail.com"><br>
+        <label for="user_password">user_password:</label><br>
+        <input type="text" id="user_password" name="user_password" value=""><br><br>
+        <input type="submit" value="Submit">
+    </form>
+</body>
+
+</html>
