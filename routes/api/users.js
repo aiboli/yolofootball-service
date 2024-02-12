@@ -75,7 +75,7 @@ router.post("/signin", async function (req, res, next) {
   console.log(result);
   if (result && !result.data && !result.data.user_name) {
     console.log("user not found");
-    return res.status(401).redirect("/login");
+    return res.status(401).json({ message: "wrong user" });
   }
   const currentpassword = result.data.password;
   console.log(currentpassword);
@@ -88,7 +88,7 @@ router.post("/signin", async function (req, res, next) {
   );
   console.log(passwordResult);
   if (!passwordResult) {
-    return res.status(401).redirect("/login");
+    return res.status(401).json({ message: "wrong password" });
   }
   const token = jwt.sign(
     {
@@ -100,7 +100,7 @@ router.post("/signin", async function (req, res, next) {
   return res
     .cookie("access_token", token)
     .status(200)
-    .redirect(userData.redirectURL);
+    .json({ message: "succeed", redirectURL: userData.redirectURL });
 });
 
 module.exports = router;
