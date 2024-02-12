@@ -50,9 +50,12 @@ router.post("/signup", async function (req, res, next) {
       "yolofootball"
     );
     console.log(token);
-    res.cookie("access_token", token).status(200).json({ message: "succeed" });
+    return res
+      .cookie("access_token", token)
+      .status(200)
+      .json({ message: "succeed" });
   } else {
-    return res.status(301).redirect("/login");
+    return res.status(301).json({ message: "failed" });
   }
 });
 
