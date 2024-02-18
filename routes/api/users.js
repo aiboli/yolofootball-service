@@ -98,9 +98,18 @@ router.post("/signin", async function (req, res, next) {
     "yolofootball"
   );
   return res
-    .cookie("access_token", token)
+    .cookie("access_token", token, { httpOnly: false })
+    .header(
+      "Access-Control-Allow-Origin",
+      "http://localhost:3000, https://www.yolofootball.com"
+    )
+    .header("Access-Control-Allow-Credentials", "true")
     .status(200)
-    .json({ message: "succeed", redirectURL: userData.redirectURL });
+    .json({
+      message: "succeed",
+      redirectURL: userData.redirectURL,
+      accessToken: token,
+    });
 });
 
 module.exports = router;
