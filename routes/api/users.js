@@ -109,6 +109,11 @@ router.post("/signin", async function (req, res, next) {
       message: "succeed",
       redirectURL: userData.redirectURL,
       accessToken: token,
+      userProfile: {
+        userName: result.data.user_name,
+        userEmail: result.data.user_email,
+        userId: result.data.id,
+      },
     });
 });
 
