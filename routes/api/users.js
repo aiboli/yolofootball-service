@@ -52,10 +52,14 @@ router.post("/signup", async function (req, res, next) {
       "yolofootball"
     );
     console.log(token);
-    return res
-      .cookie("access_token", token)
-      .status(200)
-      .json({ message: "succeed" });
+    return res.status(200).json({
+      message: "succeed",
+      userProfile: {
+        userName: result.data.user_name,
+        userEmail: result.data.user_email,
+        userId: result.data.id,
+      },
+    });
   } else {
     return res.status(301).json({ message: "failed" });
   }
