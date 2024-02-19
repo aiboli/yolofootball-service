@@ -1,6 +1,8 @@
 var express = require("express");
 var router = express.Router();
 var ENDPOINT_SELETOR = require("../../endpoints/endpoints");
+const getUserDataFromToken =
+  require("../../middlewares/authentication").getUserDataFromToken;
 var axios = require("axios");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -112,6 +114,34 @@ router.post("/signin", async function (req, res, next) {
         userId: result.data.id,
       },
     });
+});
+
+router.get("/profile", async function (req, res, next) {
+  // check if user exists
+  if (!req.cookies && !req.cookies.access_token) {
+    return res.status(401).json({
+      message: "unauth",
+    });
+  }
+  const authData = getUserDataFromToken(req.cookies.access_token);
+  const userName = authData.data;
+  let result = await axios.get(
+    `http://${ENDPOINT_SELETOR(req.app.get("env"))}/user?user_name=${userName}`
+  );
+  console.log(result.data);
+  if (result.data && result.data.user_name) {
+    return res.status(200).json({
+      message: "succeed",
+      userProfile: {
+        userName: result.data.user_name,
+        userEmail: result.data.user_email,
+        userId: result.data.id,
+      },
+    });
+  }
+  return res.status(401).json({
+    message: "unauth",
+  });
 });
 
 module.exports = router;
