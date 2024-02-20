@@ -1,8 +1,8 @@
 var express = require("express");
 var router = express.Router();
 var ENDPOINT_SELETOR = require("../../endpoints/endpoints");
-const getUserDataFromToken = require("../../middlewares/authentication")
-  .getUserDataFromToken;
+const getUserDataFromToken =
+  require("../../middlewares/authentication").getUserDataFromToken;
 var axios = require("axios");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -10,11 +10,11 @@ const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
 
 /* GET users listing. */
-router.post("/signup", async function(req, res, next) {
+router.post("/signup", async function (req, res, next) {
   const userData = {
     username: req.body.user_name,
     email: req.body.user_email,
-    password: req.body.user_password
+    password: req.body.user_password,
   };
   // check if user exists
   let result = await axios.get(
@@ -39,21 +39,23 @@ router.post("/signup", async function(req, res, next) {
       password: hashPassword,
       is_valid_user: false,
       customized_field: {
-        prefered_culture: "en-us"
-      }
+        prefered_culture: "en-us",
+      },
     }
   );
   if (signupResult.status == 200) {
     const token = jwt.sign(
       {
         data: userData.username,
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
       },
       "yolofootball"
     );
     console.log(token);
     return res.status(200).json({
       message: "succeed",
+      redirectURL: userData.redirectURL,
+      accessToken: token,
       userProfile: {
         userName: result.data.user_name,
         userEmail: result.data.user_email,
@@ -65,11 +67,11 @@ router.post("/signup", async function(req, res, next) {
   }
 });
 
-router.post("/signin", async function(req, res, next) {
+router.post("/signin", async function (req, res, next) {
   const userData = {
     username: req.body.user_name,
     password: req.body.user_password,
-    redirectURL: req.body.redirect_to
+    redirectURL: req.body.redirect_to,
   };
   console.log(userData);
   // check if user exists
@@ -99,7 +101,7 @@ router.post("/signin", async function(req, res, next) {
   const token = jwt.sign(
     {
       data: userData.username,
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
     },
     "yolofootball"
   );
@@ -113,16 +115,16 @@ router.post("/signin", async function(req, res, next) {
       userProfile: {
         userName: result.data.user_name,
         userEmail: result.data.user_email,
-        userId: result.data.id
-      }
+        userId: result.data.id,
+      },
     });
 });
 
-router.get("/profile", async function(req, res, next) {
+router.get("/profile", async function (req, res, next) {
   // check if user exists
   if (!req.headers && !req.headers.authorization) {
     return res.status(401).json({
-      message: "unauth"
+      message: "unauth",
     });
   }
   const authData = getUserDataFromToken(req.headers.authorization);
@@ -137,12 +139,12 @@ router.get("/profile", async function(req, res, next) {
       userProfile: {
         userName: result.data.user_name,
         userEmail: result.data.user_email,
-        userId: result.data.id
-      }
+        userId: result.data.id,
+      },
     });
   }
   return res.status(401).json({
-    message: "unauth"
+    message: "unauth",
   });
 });
 
