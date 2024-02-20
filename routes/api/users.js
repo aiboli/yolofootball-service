@@ -23,7 +23,7 @@ router.post("/signup", async function (req, res, next) {
     }`
   );
   if (result && result.data && result.data.user_name) {
-    return res.status(301).redirect("/login");
+    return res.status(301).json({ message: "failed" });
   }
   const hashPassword = bcrypt.hashSync(userData.password, salt);
   let signupResult = await axios.post(
