@@ -35,7 +35,7 @@ router.post("/signup", async function (req, res, next) {
       created_date: new Date(),
       order_ids: [],
       created_bid_ids: [],
-      account_balance: 10000,
+      amount: 10000,
       password: hashPassword,
       is_valid_user: false,
       customized_field: {
@@ -60,6 +60,9 @@ router.post("/signup", async function (req, res, next) {
         userName: signupResult.data.user_name,
         userEmail: signupResult.data.user_email,
         userId: signupResult.data.id,
+        userOrderIds: signupResult.data.order_ids,
+        userCreatedBidIds: signupResult.data.created_bid_ids,
+        userBalance: signupResult.data.account_balance,
       },
     });
   } else {
@@ -116,6 +119,9 @@ router.post("/signin", async function (req, res, next) {
         userName: result.data.user_name,
         userEmail: result.data.user_email,
         userId: result.data.id,
+        userOrderIds: signupResult.data.order_ids,
+        userCreatedBidIds: signupResult.data.created_bid_ids,
+        userBalance: signupResult.data.account_balance,
       },
     });
 });
@@ -140,6 +146,9 @@ router.get("/profile", async function (req, res, next) {
         userName: result.data.user_name,
         userEmail: result.data.user_email,
         userId: result.data.id,
+        userOrderIds: signupResult.data.order_ids,
+        userCreatedBidIds: signupResult.data.created_bid_ids,
+        userBalance: signupResult.data.account_balance,
       },
     });
   }
