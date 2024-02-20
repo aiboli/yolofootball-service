@@ -57,9 +57,9 @@ router.post("/signup", async function (req, res, next) {
       redirectURL: userData.redirectURL,
       accessToken: token,
       userProfile: {
-        userName: result.data.user_name,
-        userEmail: result.data.user_email,
-        userId: result.data.id,
+        userName: signupResult.data.user_name,
+        userEmail: signupResult.data.user_email,
+        userId: signupResult.data.id,
       },
     });
   } else {
