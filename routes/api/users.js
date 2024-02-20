@@ -119,9 +119,9 @@ router.post("/signin", async function (req, res, next) {
         userName: result.data.user_name,
         userEmail: result.data.user_email,
         userId: result.data.id,
-        userOrderIds: signupResult.data.order_ids,
-        userCreatedBidIds: signupResult.data.created_bid_ids,
-        userBalance: signupResult.data.account_balance,
+        userOrderIds: result.data.order_ids,
+        userCreatedBidIds: result.data.created_bid_ids,
+        userBalance: result.data.account_balance,
       },
     });
 });
@@ -146,9 +146,9 @@ router.get("/profile", async function (req, res, next) {
         userName: result.data.user_name,
         userEmail: result.data.user_email,
         userId: result.data.id,
-        userOrderIds: signupResult.data.order_ids,
-        userCreatedBidIds: signupResult.data.created_bid_ids,
-        userBalance: signupResult.data.account_balance,
+        userOrderIds: result.data.order_ids,
+        userCreatedBidIds: result.data.created_bid_ids,
+        userBalance: result.data.account_balance,
       },
     });
   }
