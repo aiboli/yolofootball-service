@@ -44,11 +44,15 @@ router.post("/getOrders", authentication, async function (req, res, next) {
   const accessToken = req.cookies.access_token || req.headers.authorization;
   const authData = jwt.verify(accessToken, "yolofootball");
   const userName = authData.data;
-  const userData = {
-    ids: JSON.parse(req.body.order_ids),
-    state: req.body.order_state, //pending, completed, canceled
+  let userData = {
     created_by: userName,
   };
+  if (req.body && req.body.order_state) {
+    userData.state = req.body.order_state; //pending, completed, canceled
+  }
+  if (req.body && req.body.order_ids) {
+    userData.ids = SON.parse(req.body.order_ids);
+  }
   console.log(userData);
   // check if user exists
   let result = await axios.post(
