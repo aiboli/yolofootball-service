@@ -41,7 +41,7 @@ router.post("/", authentication, async function (req, res, next) {
  */
 router.post("/getOrders", authentication, async function (req, res, next) {
   console.log(req);
-  const accessToken = req.cookies.access_token;
+  const accessToken = req.cookies.access_token || req.headers.authorization;
   const authData = jwt.verify(accessToken, "yolofootball");
   const userName = authData.data;
   const userData = {
