@@ -51,7 +51,7 @@ router.post("/getOrders", authentication, async function (req, res, next) {
     userData.state = req.body.order_state; //pending, completed, canceled
   }
   if (req.body && req.body.order_ids) {
-    userData.ids = JSON.parse(req.body.order_ids);
+    userData.ids = req.body.order_ids;
   }
   console.log(userData);
   // check if user exists
