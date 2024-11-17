@@ -65,5 +65,52 @@ router.post("/getOrders", authentication, async function (req, res, next) {
     return res.status(404).json("get orders failed");
   }
 });
+/**
+ * get user's order with hydrated information
+ */
+router.post(
+  "/getHydatedOrders",
+  authentication,
+  async function (req, res, next) {
+    console.log(req);
+    const accessToken = req.cookies.access_token || req.headers.authorization;
+    const authData = jwt.verify(accessToken, "yolofootball");
+    const userName = authData.data;
+    let userData = {
+      created_by: userName,
+    };
+    if (req.body && req.body.order_state) {
+      userData.state = req.body.order_state; //pending, completed, canceled
+    }
+    if (req.body && req.body.order_ids) {
+      userData.ids = req.body.order_ids;
+    }
+    console.log(userData);
+    // check if user exists
+    let orderResult = await axios.post(
+      `http://${ENDPOINT_SELETOR(req.app.get("env"))}/order/orders`,
+      userData
+    );
+
+    // get fixture information
+    let fixtureResult = await axios.get(
+      `http://${ENDPOINT_SELETOR(req.app.get("env"))}/fixtures/`
+    );
+    let fixtureMap = {};
+    if (fixtureResult && fixtureResult.data) {
+      fixtureResult.data.forEach((fixture) => {
+        fixtureMap[fixture.id] = fixture;
+      });
+    }
+    if (orderResult && orderResult.data) {
+      orderResult.data.forEach((order) => {
+        order.fixture_details = fixtureMap[order.fixture_id];
+      });
+      return res.status(200).json(orderResult.data);
+    } else {
+      return res.status(404).json("get orders failed");
+    }
+  }
+);
 
 module.exports = router;
