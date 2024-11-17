@@ -66,7 +66,7 @@ router.post("/getOrders", authentication, async function (req, res, next) {
   }
 });
 /**
- * get user's order with hydrated information
+ * get user's order with hydrated information v2
  */
 router.post(
   "/getHydatedOrders",
