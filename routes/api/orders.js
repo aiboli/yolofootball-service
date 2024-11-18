@@ -69,10 +69,10 @@ router.post("/getOrders", authentication, async function (req, res, next) {
  * get user's order with hydrated information v2
  */
 router.post(
-  "/getHydatedOrders",
+  "/getHydratedOrders",
   authentication,
   async function (req, res, next) {
-    console.log(req);
+    // console.log(req);
     const accessToken = req.cookies.access_token || req.headers.authorization;
     const authData = jwt.verify(accessToken, "yolofootball");
     const userName = authData.data;
@@ -96,10 +96,11 @@ router.post(
     let fixtureResult = await axios.get(
       `http://${ENDPOINT_SELETOR(req.app.get("env"))}/fixtures/`
     );
+    console.log(fixtureResult);
     let fixtureMap = {};
     if (fixtureResult && fixtureResult.data) {
       fixtureResult.data.forEach((fixture) => {
-        fixtureMap[fixture.id] = fixture;
+        fixtureMap[fixture.fixture.id] = fixture;
       });
     }
     if (orderResult && orderResult.data) {
