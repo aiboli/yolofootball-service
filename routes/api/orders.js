@@ -2,18 +2,31 @@ var express = require("express");
 var router = express.Router();
 var ENDPOINT_SELETOR = require("../../endpoints/endpoints");
 var axios = require("axios");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const saltRounds = 10;
-const salt = bcrypt.genSaltSync(saltRounds);
 const authentication = require("../../middlewares/authentication");
+const { getUserDataFromRequest } = require("../../utils/auth");
+const { getErrorMessage } = require("../../utils/api");
 
 /* GET users listing. */
 router.post("/", authentication, async function (req, res, next) {
-  const accessToken = req.cookies.access_token || req.headers.authorization;
-  const authData = jwt.verify(accessToken, "yolofootball");
+  const authData = getUserDataFromRequest(req);
+  if (!authData) {
+    return res.sendStatus(403);
+  }
+
   const userName = authData.data;
   const postbody = req.body;
+  if (
+    !postbody ||
+    postbody.fixture_id === undefined ||
+    postbody.bet_result === undefined ||
+    postbody.odd_mount === undefined ||
+    postbody.fixture_state === undefined ||
+    postbody.odd_rate === undefined ||
+    postbody.win_return === undefined
+  ) {
+    return res.status(400).json({ message: "invalid order payload" });
+  }
+
   const orderToCreate = {
     fixture_id: postbody.fixture_id,
     bet_result: postbody.bet_result,
@@ -23,26 +36,29 @@ router.post("/", authentication, async function (req, res, next) {
     win_return: postbody.win_return,
     user_name: userName,
   };
-  console.log(orderToCreate);
-  // check if user exists
-  let result = await axios.post(
-    `http://${ENDPOINT_SELETOR(req.app.get("env"))}/order/`,
-    orderToCreate
-  );
-  console.log(result);
-  if (result && result.data && result.data.created_by) {
-    return res.status(200).json(result.data);
-  } else {
+
+  try {
+    let result = await axios.post(
+      `http://${ENDPOINT_SELETOR(req.app.get("env"))}/order/`,
+      orderToCreate
+    );
+    if (result && result.data && result.data.created_by) {
+      return res.status(200).json(result.data);
+    }
     return res.status(404).json("created order failed");
+  } catch (error) {
+    return res.status(502).json(getErrorMessage(error, "created order failed"));
   }
 });
 /**
  * get user's by its status
  */
 router.post("/getOrders", authentication, async function (req, res, next) {
-  console.log(req);
-  const accessToken = req.cookies.access_token || req.headers.authorization;
-  const authData = jwt.verify(accessToken, "yolofootball");
+  const authData = getUserDataFromRequest(req);
+  if (!authData) {
+    return res.sendStatus(403);
+  }
+
   const userName = authData.data;
   let userData = {
     created_by: userName,
@@ -53,16 +69,18 @@ router.post("/getOrders", authentication, async function (req, res, next) {
   if (req.body && req.body.order_ids) {
     userData.ids = req.body.order_ids;
   }
-  console.log(userData);
-  // check if user exists
-  let result = await axios.post(
-    `http://${ENDPOINT_SELETOR(req.app.get("env"))}/order/orders`,
-    userData
-  );
-  if (result && result.data) {
-    return res.status(200).json(result.data);
-  } else {
+
+  try {
+    let result = await axios.post(
+      `http://${ENDPOINT_SELETOR(req.app.get("env"))}/order/orders`,
+      userData
+    );
+    if (result && result.data) {
+      return res.status(200).json(result.data);
+    }
     return res.status(404).json("get orders failed");
+  } catch (error) {
+    return res.status(502).json(getErrorMessage(error, "get orders failed"));
   }
 });
 /**
@@ -72,9 +90,11 @@ router.post(
   "/getHydratedOrders",
   authentication,
   async function (req, res, next) {
-    // console.log(req);
-    const accessToken = req.cookies.access_token || req.headers.authorization;
-    const authData = jwt.verify(accessToken, "yolofootball");
+    const authData = getUserDataFromRequest(req);
+    if (!authData) {
+      return res.sendStatus(403);
+    }
+
     const userName = authData.data;
     let userData = {
       created_by: userName,
@@ -85,31 +105,32 @@ router.post(
     if (req.body && req.body.order_ids) {
       userData.ids = req.body.order_ids;
     }
-    console.log(userData);
-    // check if user exists
-    let orderResult = await axios.post(
-      `http://${ENDPOINT_SELETOR(req.app.get("env"))}/order/orders`,
-      userData
-    );
 
-    // get fixture information
-    let fixtureResult = await axios.get(
-      `http://${ENDPOINT_SELETOR(req.app.get("env"))}/fixtures/`
-    );
-    console.log(fixtureResult);
-    let fixtureMap = {};
-    if (fixtureResult && fixtureResult.data) {
-      fixtureResult.data.forEach((fixture) => {
-        fixtureMap[fixture.fixture.id] = fixture;
-      });
-    }
-    if (orderResult && orderResult.data) {
-      orderResult.data.forEach((order) => {
-        order.fixture_details = fixtureMap[order.fixture_id];
-      });
-      return res.status(200).json(orderResult.data);
-    } else {
-      return res.status(404).json("get orders failed");
+    try {
+      let orderResult = await axios.post(
+        `http://${ENDPOINT_SELETOR(req.app.get("env"))}/order/orders`,
+        userData
+      );
+
+      let fixtureResult = await axios.get(
+        `http://${ENDPOINT_SELETOR(req.app.get("env"))}/fixtures/`
+      );
+      let fixtureMap = {};
+      if (fixtureResult && fixtureResult.data) {
+        fixtureResult.data.forEach((fixture) => {
+          fixtureMap[fixture.fixture.id] = fixture;
+        });
+      }
+      if (orderResult && orderResult.data) {
+        orderResult.data.forEach((order) => {
+          order.fixture_details = fixtureMap[order.fixture_id];
+        });
+        return res.status(200).json(orderResult.data);
+      } else {
+        return res.status(404).json("get orders failed");
+      }
+    } catch (error) {
+      return res.status(502).json(getErrorMessage(error, "get orders failed"));
     }
   }
 );
