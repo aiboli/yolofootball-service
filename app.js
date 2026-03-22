@@ -25,16 +25,18 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 // Add headers before the routes are defined
-const allowedOrigins = new Set([
-  "https://www.yolofootball.com",
-  "http://localhost:3001",
-]);
+// const allowedOrigins = new Set([
+//   "https://www.yolofootball.com",
+//   "http://localhost:3001",
+// ]);
 
 app.use(function(req, res, next) {
-  const requestOrigin = req.headers.origin;
-  if (requestOrigin && allowedOrigins.has(requestOrigin)) {
-    res.setHeader("Access-Control-Allow-Origin", requestOrigin);
-  }
+  // const requestOrigin = req.headers.origin;
+  // if (requestOrigin && allowedOrigins.has(requestOrigin)) {
+  //   res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+  // }
+
+  res.setHeader("Access-Control-Allow-Origin", "*");
 
   res.setHeader(
     "Access-Control-Allow-Methods",
