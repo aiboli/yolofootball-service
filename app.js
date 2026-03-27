@@ -12,6 +12,7 @@ var usersRouter = require("./routes/users");
 var dataAPIRouter = require("./routes/api/data");
 var userAPIRouter = require("./routes/api/users");
 var orderAPIRouter = require("./routes/api/orders");
+var eventAPIRouter = require("./routes/api/event");
 
 var app = express();
 // view engine setup
@@ -62,6 +63,7 @@ app.use("/users", usersRouter);
 app.use("/api/data", dataAPIRouter);
 app.use("/api/users", userAPIRouter);
 app.use("/api/orders", orderAPIRouter);
+app.use("/api/events", eventAPIRouter);
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
