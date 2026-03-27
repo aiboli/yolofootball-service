@@ -3,7 +3,7 @@ var router = express.Router();
 var ENDPOINT_SELETOR = require("../../endpoints/endpoints");
 var axios = require("axios");
 const authentication = require("../../middlewares/authentication");
-const { getAccessToken, getUserDataFromRequest } = require("../../utils/auth");
+const { getUserDataFromRequest } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
 const {
   ACTIVE_EVENT_STATUS,
@@ -16,20 +16,6 @@ const {
 
 const getDatacenterBaseUrl = (app) =>
   `http://${ENDPOINT_SELETOR(app.get("env"))}/customevent`;
-
-const getOptionalUserNameFromRequest = (req) => {
-  const token = getAccessToken(req);
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const authData = getUserDataFromRequest(req);
-    return authData?.data || null;
-  } catch {
-    return null;
-  }
-};
 
 const fetchUserProfile = async (app, userName) => {
   const userProfile = await axios.get(
@@ -140,11 +126,9 @@ router.post("/search", async function (req, res, next) {
   }
 
   try {
-    const optionalUserName = getOptionalUserNameFromRequest(req);
     const result = await axios.post(`${getDatacenterBaseUrl(req.app)}/search`, {
       fixture_ids: normalizedPayload.fixtureIds,
       status: normalizedPayload.status,
-      exclude_created_by: optionalUserName || undefined,
     });
 
     return res.status(200).json({
