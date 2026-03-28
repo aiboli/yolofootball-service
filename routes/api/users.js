@@ -9,6 +9,11 @@ const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
 const { calculateOrderOutcome } = require("../../utils/orderSettlement");
+const {
+  PRIVACY_POLICY_VERSION,
+  buildPrivacyConsentRecord,
+  hasAcceptedPrivacyPolicy,
+} = require("../../utils/privacyPolicy");
 
 const MAX_RECENT_ITEMS = 5;
 
@@ -188,12 +193,18 @@ router.post("/signup", async function (req, res, next) {
   if (!req.body.user_name || !req.body.user_email || !req.body.user_password) {
     return res.status(400).json({ message: "failed" });
   }
+  if (!hasAcceptedPrivacyPolicy(req.body)) {
+    return res.status(400).json({
+      message: "Please review and accept the privacy notice before creating an account.",
+    });
+  }
 
   const userData = {
     username: req.body.user_name,
     email: req.body.user_email,
     password: req.body.user_password,
     redirectURL: req.body.redirect_to,
+    privacyPolicyVersion: req.body.privacy_policy_version || PRIVACY_POLICY_VERSION,
   };
 
   try {
@@ -221,6 +232,10 @@ router.post("/signup", async function (req, res, next) {
         is_valid_user: false,
         customized_field: {
           prefered_culture: "en-us",
+        },
+        privacy_consent: {
+          ...buildPrivacyConsentRecord(),
+          version: userData.privacyPolicyVersion,
         },
       }
     );
