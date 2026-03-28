@@ -9,7 +9,10 @@ const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
 const { calculateOrderOutcome } = require("../../utils/orderSettlement");
-const { hydratePredictionHistory } = require("../../utils/predictions");
+const {
+  buildPredictionSummary,
+  hydratePredictionHistory,
+} = require("../../utils/predictions");
 const {
   PRIVACY_POLICY_VERSION,
   buildPrivacyConsentRecord,
@@ -136,6 +139,23 @@ const serializeRecentPrediction = (prediction) => ({
   fixture: serializeFixtureSummary(prediction.fixture),
 });
 
+const serializePredictionSummary = (summary) => ({
+  totalPredictions: Number(summary?.totalPredictions || 0),
+  settledPredictions: Number(summary?.settledPredictions || 0),
+  wins: Number(summary?.wins || 0),
+  losses: Number(summary?.losses || 0),
+  pending: Number(summary?.pending || 0),
+  accuracy: Number(summary?.accuracy || 0),
+  currentStreak: Number(summary?.currentStreak || 0),
+  bestStreak: Number(summary?.bestStreak || 0),
+  weeklyWins: Number(summary?.weeklyWins || 0),
+  weeklySettledPredictions: Number(summary?.weeklySettledPredictions || 0),
+  weeklyAccuracy: Number(summary?.weeklyAccuracy || 0),
+  recentForm: Array.isArray(summary?.recentForm) ? summary.recentForm : [],
+  lastPredictionAt: summary?.lastPredictionAt || null,
+  lastSettledAt: summary?.lastSettledAt || null,
+});
+
 const fetchUserRecord = async (app, userName) => {
   const result = await axios.get(
     `${getDatacenterBaseUrl(app)}/user?user_name=${encodeURIComponent(userName)}`
@@ -221,8 +241,11 @@ const buildUserProfilePayload = async (app, userRecord) => {
   }
 
   let recentPredictions = [];
+  let predictionSummary = buildPredictionSummary([], new Date());
   if (predictionHistory.length > 0) {
-    recentPredictions = hydratePredictionHistory(predictionHistory, fixtureMap)
+    const hydratedPredictions = hydratePredictionHistory(predictionHistory, fixtureMap);
+    predictionSummary = buildPredictionSummary(hydratedPredictions, new Date());
+    recentPredictions = hydratedPredictions
       .slice(0, MAX_RECENT_ITEMS)
       .map(serializeRecentPrediction);
   }
@@ -258,6 +281,7 @@ const buildUserProfilePayload = async (app, userRecord) => {
     favoriteLeagues,
     onboardingState,
     predictionCount: predictionHistory.length,
+    predictionSummary: serializePredictionSummary(predictionSummary),
     recentPredictions,
     recentOrders,
     recentCustomEvents,
@@ -480,6 +504,7 @@ module.exports._private = {
   serializeRecentOrder,
   serializeRecentCustomEvent,
   serializeRecentPrediction,
+  serializePredictionSummary,
   buildUserProfilePayload,
   getAuthenticatedUserName,
 };

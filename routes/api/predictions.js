@@ -6,6 +6,8 @@ const authentication = require("../../middlewares/authentication");
 const { getUserDataFromRequest } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
 const {
+  buildPredictionLeaderboard,
+  buildPredictionSummary,
   normalizePredictionPayload,
   hydratePredictionHistory,
 } = require("../../utils/predictions");
@@ -39,6 +41,11 @@ const updateUserRecord = async (app, userName, payload) => {
     payload
   );
   return result?.data || null;
+};
+
+const fetchUsersWithPredictions = async (app) => {
+  const result = await axios.get(`${getDatacenterBaseUrl(app)}/user/all?has_predictions=true`);
+  return Array.isArray(result?.data) ? result.data : [];
 };
 
 const serializePrediction = (prediction) => ({
@@ -83,6 +90,29 @@ const serializePrediction = (prediction) => ({
     : null,
 });
 
+const serializePredictionSummary = (summary) => ({
+  totalPredictions: Number(summary?.totalPredictions || 0),
+  settledPredictions: Number(summary?.settledPredictions || 0),
+  wins: Number(summary?.wins || 0),
+  losses: Number(summary?.losses || 0),
+  pending: Number(summary?.pending || 0),
+  accuracy: Number(summary?.accuracy || 0),
+  currentStreak: Number(summary?.currentStreak || 0),
+  bestStreak: Number(summary?.bestStreak || 0),
+  weeklyWins: Number(summary?.weeklyWins || 0),
+  weeklySettledPredictions: Number(summary?.weeklySettledPredictions || 0),
+  weeklyAccuracy: Number(summary?.weeklyAccuracy || 0),
+  recentForm: Array.isArray(summary?.recentForm) ? summary.recentForm : [],
+  lastPredictionAt: summary?.lastPredictionAt || null,
+  lastSettledAt: summary?.lastSettledAt || null,
+});
+
+const serializeLeaderboardEntry = (entry) => ({
+  rank: Number(entry?.rank || 0),
+  userName: entry?.userName || "",
+  predictionSummary: serializePredictionSummary(entry?.predictionSummary),
+});
+
 router.get("/", authentication, async function (req, res, next) {
   const authData = getUserDataFromRequest(req);
   if (!authData?.data) {
@@ -103,6 +133,61 @@ router.get("/", authentication, async function (req, res, next) {
   } catch (error) {
     return res.status(502).json({
       message: getErrorMessage(error, "failed to load predictions"),
+    });
+  }
+});
+
+router.get("/leaderboard", async function (req, res, next) {
+  try {
+    const [userRecords, fixtureMap] = await Promise.all([
+      fetchUsersWithPredictions(req.app),
+      fetchFixtureMap(req.app),
+    ]);
+    const leaderboardResult = buildPredictionLeaderboard(
+      userRecords,
+      fixtureMap,
+      new Date()
+    );
+
+    let viewerEntry = null;
+    try {
+      const authData = getUserDataFromRequest(req);
+      if (authData?.data) {
+        const matchedEntry = leaderboardResult.leaderboard.find(
+          (entry) => entry.userName === authData.data
+        );
+        if (matchedEntry) {
+          viewerEntry = serializeLeaderboardEntry(matchedEntry);
+        } else {
+          const userRecord = userRecords.find((user) => user.user_name === authData.data);
+          if (userRecord) {
+            const hydratedPredictions = hydratePredictionHistory(
+              userRecord?.prediction_history || [],
+              fixtureMap
+            );
+            viewerEntry = {
+              rank: null,
+              userName: authData.data,
+              predictionSummary: serializePredictionSummary(
+                buildPredictionSummary(hydratedPredictions, new Date())
+              ),
+            };
+          }
+        }
+      }
+    } catch (error) {
+      viewerEntry = null;
+    }
+
+    return res.status(200).json({
+      message: "succeed",
+      leaderboard: leaderboardResult.leaderboard.map(serializeLeaderboardEntry),
+      hotThisWeek: leaderboardResult.hotThisWeek.map(serializeLeaderboardEntry),
+      viewerEntry,
+    });
+  } catch (error) {
+    return res.status(502).json({
+      message: getErrorMessage(error, "failed to load prediction leaderboard"),
     });
   }
 });
@@ -145,3 +230,12 @@ router.post("/", authentication, async function (req, res, next) {
 });
 
 module.exports = router;
+module.exports._private = {
+  fetchUserRecord,
+  fetchUsersWithPredictions,
+  fetchFixtureMap,
+  updateUserRecord,
+  serializePrediction,
+  serializePredictionSummary,
+  serializeLeaderboardEntry,
+};
