@@ -14,6 +14,7 @@ var userAPIRouter = require("./routes/api/users");
 var orderAPIRouter = require("./routes/api/orders");
 var eventAPIRouter = require("./routes/api/event");
 var predictionAPIRouter = require("./routes/api/predictions");
+var notificationAPIRouter = require("./routes/api/notifications");
 
 var app = express();
 // view engine setup
@@ -66,6 +67,7 @@ app.use("/api/users", userAPIRouter);
 app.use("/api/orders", orderAPIRouter);
 app.use("/api/events", eventAPIRouter);
 app.use("/api/predictions", predictionAPIRouter);
+app.use("/api/notifications", notificationAPIRouter);
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
