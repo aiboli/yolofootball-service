@@ -9,6 +9,7 @@ const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
 const { calculateOrderOutcome } = require("../../utils/orderSettlement");
+const { hydratePredictionHistory } = require("../../utils/predictions");
 const {
   PRIVACY_POLICY_VERSION,
   buildPrivacyConsentRecord,
@@ -19,6 +20,18 @@ const MAX_RECENT_ITEMS = 5;
 
 const getDatacenterBaseUrl = (app) =>
   `http://${ENDPOINT_SELETOR(app.get("env"))}`;
+
+const getAuthenticatedUserName = (req) => {
+  if (!req.headers?.authorization) {
+    return null;
+  }
+
+  try {
+    return getUserDataFromToken(req.headers.authorization)?.data || null;
+  } catch (error) {
+    return null;
+  }
+};
 
 const serializeFixtureSummary = (fixtureDetails) => {
   if (!fixtureDetails) {
@@ -109,12 +122,49 @@ const serializeRecentCustomEvent = (event, fixtureMap) => ({
   fixture: serializeFixtureSummary(fixtureMap[Number(event.fixture_id)]),
 });
 
+const serializeRecentPrediction = (prediction) => ({
+  id: prediction.id || `${prediction.fixture_id}-${prediction.created_at || "prediction"}`,
+  fixtureId: Number(prediction.fixture_id),
+  predictedResult: Number(prediction.predicted_result),
+  predictedLabel: prediction.predicted_label || null,
+  fixtureState: prediction.fixture_state || "notstarted",
+  createdAt: prediction.created_at || null,
+  result: prediction.result || "pending",
+  isSettled: !!prediction.is_settled,
+  actualResult:
+    prediction.actual_result !== undefined ? Number(prediction.actual_result) : null,
+  fixture: serializeFixtureSummary(prediction.fixture),
+});
+
+const fetchUserRecord = async (app, userName) => {
+  const result = await axios.get(
+    `${getDatacenterBaseUrl(app)}/user?user_name=${encodeURIComponent(userName)}`
+  );
+  return result?.data || null;
+};
+
+const updateUserRecord = async (app, userName, payload) => {
+  const result = await axios.put(
+    `${getDatacenterBaseUrl(app)}/user/${encodeURIComponent(userName)}`,
+    payload
+  );
+  return result?.data || null;
+};
+
 const buildUserProfilePayload = async (app, userRecord) => {
   const orderIds = Array.isArray(userRecord.order_ids) ? userRecord.order_ids : [];
   const customEventIds = Array.isArray(userRecord.created_bid_ids)
     ? userRecord.created_bid_ids
     : [];
-  const needsActivityHydration = orderIds.length > 0 || customEventIds.length > 0;
+  const favoriteTeams = Array.isArray(userRecord.favorite_teams) ? userRecord.favorite_teams : [];
+  const favoriteLeagues = Array.isArray(userRecord.favorite_leagues)
+    ? userRecord.favorite_leagues
+    : [];
+  const predictionHistory = Array.isArray(userRecord.prediction_history)
+    ? userRecord.prediction_history
+    : [];
+  const needsActivityHydration =
+    orderIds.length > 0 || customEventIds.length > 0 || predictionHistory.length > 0;
 
   let fixtureMap = {};
   if (needsActivityHydration) {
@@ -170,6 +220,27 @@ const buildUserProfilePayload = async (app, userRecord) => {
     }
   }
 
+  let recentPredictions = [];
+  if (predictionHistory.length > 0) {
+    recentPredictions = hydratePredictionHistory(predictionHistory, fixtureMap)
+      .slice(0, MAX_RECENT_ITEMS)
+      .map(serializeRecentPrediction);
+  }
+
+  const currentOnboardingState =
+    userRecord.onboarding_state && typeof userRecord.onboarding_state === "object"
+      ? userRecord.onboarding_state
+      : {};
+  const onboardingState = {
+    signup_completed: true,
+    preferences_completed: favoriteTeams.length + favoriteLeagues.length > 0,
+    starter_slip_loaded: false,
+    first_prediction_completed: predictionHistory.length > 0,
+    first_order_completed: orderIds.length > 0,
+    first_custom_odds_completed: customEventIds.length > 0,
+    ...currentOnboardingState,
+  };
+
   return {
     userName: userRecord.user_name,
     userEmail: userRecord.user_email,
@@ -183,6 +254,11 @@ const buildUserProfilePayload = async (app, userRecord) => {
     walletId: userRecord.user_wallet_id || null,
     orderCount: orderIds.length,
     customEventCount: customEventIds.length,
+    favoriteTeams,
+    favoriteLeagues,
+    onboardingState,
+    predictionCount: predictionHistory.length,
+    recentPredictions,
     recentOrders,
     recentCustomEvents,
   };
@@ -312,6 +388,61 @@ router.post("/signin", async function (req, res, next) {
   }
 });
 
+router.put("/preferences", async function (req, res, next) {
+  const userName = getAuthenticatedUserName(req);
+  if (!userName) {
+    return res.status(401).json({ message: "unauth" });
+  }
+
+  const favoriteTeams = Array.isArray(req.body?.favorite_teams)
+    ? req.body.favorite_teams
+    : [];
+  const favoriteLeagues = Array.isArray(req.body?.favorite_leagues)
+    ? req.body.favorite_leagues
+    : [];
+
+  try {
+    const updatedUser = await updateUserRecord(req.app, userName, {
+      favorite_teams: favoriteTeams,
+      favorite_leagues: favoriteLeagues,
+      onboarding_state: {
+        preferences_completed: favoriteTeams.length + favoriteLeagues.length > 0,
+      },
+    });
+
+    return res.status(200).json({
+      message: "succeed",
+      userProfile: await buildUserProfilePayload(req.app, updatedUser),
+    });
+  } catch (error) {
+    return res.status(502).json({
+      message: getErrorMessage(error, "failed to update preferences"),
+    });
+  }
+});
+
+router.put("/onboarding", async function (req, res, next) {
+  const userName = getAuthenticatedUserName(req);
+  if (!userName) {
+    return res.status(401).json({ message: "unauth" });
+  }
+
+  try {
+    const updatedUser = await updateUserRecord(req.app, userName, {
+      onboarding_state: req.body || {},
+    });
+
+    return res.status(200).json({
+      message: "succeed",
+      userProfile: await buildUserProfilePayload(req.app, updatedUser),
+    });
+  } catch (error) {
+    return res.status(502).json({
+      message: getErrorMessage(error, "failed to update onboarding state"),
+    });
+  }
+});
+
 router.get("/profile", async function (req, res, next) {
   if (!req.headers || !req.headers.authorization) {
     return res.status(401).json({
@@ -322,11 +453,9 @@ router.get("/profile", async function (req, res, next) {
   try {
     const authData = getUserDataFromToken(req.headers.authorization);
     const userName = authData.data;
-    let result = await axios.get(
-      `http://${ENDPOINT_SELETOR(req.app.get("env"))}/user?user_name=${userName}`
-    );
-    if (result.data && result.data.user_name) {
-      const userProfile = await buildUserProfilePayload(req.app, result.data);
+    let userRecord = await fetchUserRecord(req.app, userName);
+    if (userRecord && userRecord.user_name) {
+      const userProfile = await buildUserProfilePayload(req.app, userRecord);
       return res.status(200).json({
         message: "succeed",
         userProfile,
@@ -350,5 +479,7 @@ module.exports._private = {
   serializeSelectionDetail,
   serializeRecentOrder,
   serializeRecentCustomEvent,
+  serializeRecentPrediction,
   buildUserProfilePayload,
+  getAuthenticatedUserName,
 };

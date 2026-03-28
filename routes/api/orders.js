@@ -27,6 +27,19 @@ const fetchFixtureMap = async (app) => {
   return fixtureMap;
 };
 
+const updateUserOnboardingState = async (app, userName, onboardingState) => {
+  if (!userName) {
+    return;
+  }
+
+  await axios.put(
+    `http://${ENDPOINT_SELETOR(app.get("env"))}/user/${encodeURIComponent(userName)}`,
+    {
+      onboarding_state: onboardingState,
+    }
+  );
+};
+
 router.post("/", authentication, async function (req, res, next) {
   const authData = getUserDataFromRequest(req);
   if (!authData) {
@@ -62,6 +75,9 @@ router.post("/", authentication, async function (req, res, next) {
       orderToCreate
     );
     if (result && result.data && result.data.created_by) {
+      await updateUserOnboardingState(req.app, authData.data, {
+        first_order_completed: true,
+      });
       const fixtureMap = await fetchFixtureMap(req.app);
       const hydratedOrder = calculateOrderOutcome(result.data, fixtureMap);
 

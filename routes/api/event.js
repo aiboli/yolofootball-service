@@ -56,6 +56,19 @@ const fetchEventById = async (app, eventId) => {
   return result?.data && typeof result.data === "object" ? result.data : null;
 };
 
+const updateUserOnboardingState = async (app, userName, onboardingState) => {
+  if (!userName) {
+    return;
+  }
+
+  await axios.put(
+    `http://${ENDPOINT_SELETOR(app.get("env"))}/user/${encodeURIComponent(userName)}`,
+    {
+      onboarding_state: onboardingState,
+    }
+  );
+};
+
 const searchCustomOdds = async (app, payload) => {
   const result = await axios.post(`${getDatacenterBaseUrl(app)}/search`, payload);
   return groupEventsByFixture(result?.data?.events_by_fixture);
@@ -225,6 +238,9 @@ router.post("/", authentication, async function (req, res, next) {
       associated_order_ids: [],
       actual_return: 0,
       event_history: [],
+    });
+    await updateUserOnboardingState(req.app, authData.data, {
+      first_custom_odds_completed: true,
     });
 
     return res.status(200).json({
