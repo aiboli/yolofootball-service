@@ -98,6 +98,7 @@ const normalizeSearchPayload = (body) => {
   return {
     fixtureIds,
     status: body?.status || ACTIVE_EVENT_STATUS,
+    includeUserContext: body?.include_user_context === true,
     hasInvalidFixtureIds:
       Array.isArray(body?.fixture_ids) && fixtureIds.length !== body.fixture_ids.length,
   };

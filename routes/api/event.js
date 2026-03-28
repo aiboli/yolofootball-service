@@ -16,6 +16,7 @@ const {
 
 const getDatacenterBaseUrl = (app) =>
   `http://${ENDPOINT_SELETOR(app.get("env"))}/customevent`;
+const CANCELED_EVENT_STATUS = "canceled";
 
 const fetchUserProfile = async (app, userName) => {
   const userProfile = await axios.get(
@@ -38,6 +39,89 @@ const fetchFixtureMap = async (app) => {
   }
 
   return fixtureMap;
+};
+
+const getOptionalAuthenticatedUserName = (req) => {
+  try {
+    const authData = getUserDataFromRequest(req);
+    return authData?.data || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const fetchEventById = async (app, eventId) => {
+  const result = await axios.get(`${getDatacenterBaseUrl(app)}?id=${eventId}`);
+  return result?.data || null;
+};
+
+const searchCustomOdds = async (app, payload) => {
+  const result = await axios.post(`${getDatacenterBaseUrl(app)}/search`, payload);
+  return groupEventsByFixture(result?.data?.events_by_fixture);
+};
+
+const getCancelableEventError = ({ event, userName, fixtureState }) => {
+  if (!event) {
+    return {
+      statusCode: 404,
+      message: "custom odds not found",
+    };
+  }
+  if (event.created_by !== userName) {
+    return {
+      statusCode: 403,
+      message: "you can only cancel your own custom odds",
+    };
+  }
+  if (event.status !== ACTIVE_EVENT_STATUS) {
+    return {
+      statusCode: 409,
+      message: "custom odds can only be canceled while active",
+    };
+  }
+  if (fixtureState !== "notstarted") {
+    return {
+      statusCode: 409,
+      message: "custom odds can only be canceled before kickoff",
+    };
+  }
+  if (Array.isArray(event.associated_order_ids) && event.associated_order_ids.length > 0) {
+    return {
+      statusCode: 409,
+      message: "custom odds with linked orders cannot be canceled",
+    };
+  }
+
+  return null;
+};
+
+const buildSearchResponse = async (req, normalizedPayload, userName) => {
+  if (normalizedPayload.includeUserContext && userName) {
+    const [eventsByFixture, ownEventsByFixture] = await Promise.all([
+      searchCustomOdds(req.app, {
+        fixture_ids: normalizedPayload.fixtureIds,
+        status: normalizedPayload.status,
+        exclude_created_by: userName,
+      }),
+      searchCustomOdds(req.app, {
+        fixture_ids: normalizedPayload.fixtureIds,
+        status: normalizedPayload.status,
+        created_by: userName,
+      }),
+    ]);
+
+    return {
+      events_by_fixture: eventsByFixture,
+      own_events_by_fixture: ownEventsByFixture,
+    };
+  }
+
+  return {
+    events_by_fixture: await searchCustomOdds(req.app, {
+      fixture_ids: normalizedPayload.fixtureIds,
+      status: normalizedPayload.status,
+    }),
+  };
 };
 
 router.post("/", authentication, async function (req, res, next) {
@@ -68,15 +152,13 @@ router.post("/", authentication, async function (req, res, next) {
       return res.status(400).json({ message: "custom odds can only be created before kickoff" });
     }
 
-    const existingEventsResult = await axios.post(
-      `${getDatacenterBaseUrl(req.app)}/search`,
-      {
-        fixture_ids: [normalizedPayload.fixtureId],
-        status: ACTIVE_EVENT_STATUS,
-      }
-    );
     const existingEvents =
-      existingEventsResult?.data?.events_by_fixture?.[String(normalizedPayload.fixtureId)] || [];
+      (
+        await searchCustomOdds(req.app, {
+          fixture_ids: [normalizedPayload.fixtureId],
+          status: ACTIVE_EVENT_STATUS,
+        })
+      )[String(normalizedPayload.fixtureId)] || [];
     const hasDuplicate = existingEvents.some(
       (eventItem) => eventItem.created_by === authData.data
     );
@@ -122,21 +204,77 @@ router.post("/search", async function (req, res, next) {
   }
 
   if (normalizedPayload.fixtureIds.length === 0) {
-    return res.status(200).json({ events_by_fixture: {} });
+    return res.status(200).json(
+      normalizedPayload.includeUserContext && getOptionalAuthenticatedUserName(req)
+        ? { events_by_fixture: {}, own_events_by_fixture: {} }
+        : { events_by_fixture: {} }
+    );
   }
 
   try {
-    const result = await axios.post(`${getDatacenterBaseUrl(req.app)}/search`, {
-      fixture_ids: normalizedPayload.fixtureIds,
-      status: normalizedPayload.status,
-    });
-
-    return res.status(200).json({
-      events_by_fixture: groupEventsByFixture(result?.data?.events_by_fixture),
-    });
+    return res.status(200).json(
+      await buildSearchResponse(
+        req,
+        normalizedPayload,
+        getOptionalAuthenticatedUserName(req)
+      )
+    );
   } catch (error) {
     return res.status(502).json({
       message: getErrorMessage(error, "get custom odds failed"),
+    });
+  }
+});
+
+router.put("/:eventId/cancel", authentication, async function (req, res, next) {
+  const authData = getUserDataFromRequest(req);
+  if (!authData?.data) {
+    return res.sendStatus(403);
+  }
+
+  try {
+    const event = await fetchEventById(req.app, req.params.eventId);
+    if (!event) {
+      return res.status(404).json({ message: "custom odds not found" });
+    }
+
+    const fixtureMap = await fetchFixtureMap(req.app);
+    const fixtureId = parseInt(event.fixture_id, 10);
+    const fixture = fixtureMap[fixtureId];
+    const fixtureState = fixture ? normalizeFixtureState(fixture) : null;
+    const cancelError = getCancelableEventError({
+      event,
+      userName: authData.data,
+      fixtureState,
+    });
+
+    if (cancelError) {
+      return res.status(cancelError.statusCode).json({ message: cancelError.message });
+    }
+
+    const updateResult = await axios.put(
+      `${getDatacenterBaseUrl(req.app)}/${req.params.eventId}`,
+      {
+        status: CANCELED_EVENT_STATUS,
+        fixture_state: fixtureState,
+        event_history_entry: {
+          time: new Date().toISOString(),
+          info: "cancel custom event",
+        },
+      }
+    );
+
+    return res.status(200).json({
+      message: "succeed",
+      event: updateResult.data,
+    });
+  } catch (error) {
+    const statusCode = error.response?.status === 404 ? 404 : 502;
+    return res.status(statusCode).json({
+      message:
+        statusCode === 404
+          ? "custom odds not found"
+          : getErrorMessage(error, "cancel custom odds failed"),
     });
   }
 });
@@ -160,3 +298,9 @@ router.get("/", async function (req, res, next) {
 });
 
 module.exports = router;
+module.exports._private = {
+  CANCELED_EVENT_STATUS,
+  getOptionalAuthenticatedUserName,
+  getCancelableEventError,
+  buildSearchResponse,
+};
