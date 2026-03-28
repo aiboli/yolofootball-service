@@ -17,6 +17,7 @@ const {
 const getDatacenterBaseUrl = (app) =>
   `http://${ENDPOINT_SELETOR(app.get("env"))}/customevent`;
 const CANCELED_EVENT_STATUS = "canceled";
+const NOT_STARTED_FIXTURE_STATE = "notstarted";
 
 const fetchUserProfile = async (app, userName) => {
   const userProfile = await axios.get(
@@ -52,12 +53,44 @@ const getOptionalAuthenticatedUserName = (req) => {
 
 const fetchEventById = async (app, eventId) => {
   const result = await axios.get(`${getDatacenterBaseUrl(app)}?id=${eventId}`);
-  return result?.data || null;
+  return result?.data && typeof result.data === "object" ? result.data : null;
 };
 
 const searchCustomOdds = async (app, payload) => {
   const result = await axios.post(`${getDatacenterBaseUrl(app)}/search`, payload);
   return groupEventsByFixture(result?.data?.events_by_fixture);
+};
+
+const normalizeEventId = (eventId) => {
+  if (typeof eventId !== "string") {
+    return "";
+  }
+
+  return eventId.trim();
+};
+
+const normalizeAssociatedOrderIds = (event) => {
+  return Array.isArray(event?.associated_order_ids) ? event.associated_order_ids : [];
+};
+
+const resolveFixtureState = (fixture) => {
+  if (!fixture) {
+    return null;
+  }
+
+  return normalizeFixtureState(fixture);
+};
+
+const resolveCancelableFixtureState = (event, fixtureMap) => {
+  const fixtureId = parseInt(event?.fixture_id, 10);
+  if (Number.isInteger(fixtureId)) {
+    const liveFixtureState = resolveFixtureState(fixtureMap[fixtureId]);
+    if (liveFixtureState) {
+      return liveFixtureState;
+    }
+  }
+
+  return typeof event?.fixture_state === "string" ? event.fixture_state : null;
 };
 
 const getCancelableEventError = ({ event, userName, fixtureState }) => {
@@ -79,13 +112,22 @@ const getCancelableEventError = ({ event, userName, fixtureState }) => {
       message: "custom odds can only be canceled while active",
     };
   }
-  if (fixtureState !== "notstarted") {
+  if (!Number.isInteger(parseInt(event.fixture_id, 10))) {
     return {
       statusCode: 409,
-      message: "custom odds can only be canceled before kickoff",
+      message: "custom odds are missing a valid fixture reference",
     };
   }
-  if (Array.isArray(event.associated_order_ids) && event.associated_order_ids.length > 0) {
+  if (fixtureState !== NOT_STARTED_FIXTURE_STATE) {
+    return {
+      statusCode: 409,
+      message:
+        fixtureState === null
+          ? "custom odds fixture state is unavailable"
+          : "custom odds can only be canceled before kickoff",
+    };
+  }
+  if (normalizeAssociatedOrderIds(event).length > 0) {
     return {
       statusCode: 409,
       message: "custom odds with linked orders cannot be canceled",
@@ -121,6 +163,7 @@ const buildSearchResponse = async (req, normalizedPayload, userName) => {
       fixture_ids: normalizedPayload.fixtureIds,
       status: normalizedPayload.status,
     }),
+    ...(normalizedPayload.includeUserContext ? { own_events_by_fixture: {} } : {}),
   };
 };
 
@@ -159,7 +202,8 @@ router.post("/", authentication, async function (req, res, next) {
           status: ACTIVE_EVENT_STATUS,
         })
       )[String(normalizedPayload.fixtureId)] || [];
-    const hasDuplicate = existingEvents.some(
+    const normalizedExistingEvents = Array.isArray(existingEvents) ? existingEvents : [];
+    const hasDuplicate = normalizedExistingEvents.some(
       (eventItem) => eventItem.created_by === authData.data
     );
     if (hasDuplicate) {
@@ -232,16 +276,19 @@ router.put("/:eventId/cancel", authentication, async function (req, res, next) {
     return res.sendStatus(403);
   }
 
+  const eventId = normalizeEventId(req.params.eventId);
+  if (!eventId) {
+    return res.status(400).json({ message: "event id is required" });
+  }
+
   try {
-    const event = await fetchEventById(req.app, req.params.eventId);
+    const event = await fetchEventById(req.app, eventId);
     if (!event) {
       return res.status(404).json({ message: "custom odds not found" });
     }
 
     const fixtureMap = await fetchFixtureMap(req.app);
-    const fixtureId = parseInt(event.fixture_id, 10);
-    const fixture = fixtureMap[fixtureId];
-    const fixtureState = fixture ? normalizeFixtureState(fixture) : null;
+    const fixtureState = resolveCancelableFixtureState(event, fixtureMap);
     const cancelError = getCancelableEventError({
       event,
       userName: authData.data,
@@ -253,7 +300,7 @@ router.put("/:eventId/cancel", authentication, async function (req, res, next) {
     }
 
     const updateResult = await axios.put(
-      `${getDatacenterBaseUrl(req.app)}/${req.params.eventId}`,
+      `${getDatacenterBaseUrl(req.app)}/${eventId}`,
       {
         status: CANCELED_EVENT_STATUS,
         fixture_state: fixtureState,
@@ -300,6 +347,10 @@ router.get("/", async function (req, res, next) {
 module.exports = router;
 module.exports._private = {
   CANCELED_EVENT_STATUS,
+  NOT_STARTED_FIXTURE_STATE,
+  normalizeEventId,
+  normalizeAssociatedOrderIds,
+  resolveCancelableFixtureState,
   getOptionalAuthenticatedUserName,
   getCancelableEventError,
   buildSearchResponse,
