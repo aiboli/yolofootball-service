@@ -31,6 +31,16 @@ const sortFixturesByKickoff = (fixtures = []) => {
   return [...fixtures].sort((left, right) => getFixtureTimestamp(left) - getFixtureTimestamp(right));
 };
 
+const selectSpotlightFixture = (fixtures = [], customEventsByFixture = {}) => {
+  return (
+    fixtures.find((fixture) => {
+      const fixtureId = fixture?.fixture?.id;
+      const currentEvents = customEventsByFixture[String(fixtureId)];
+      return Array.isArray(currentEvents) && currentEvents.length > 0;
+    }) || fixtures[0] || null
+  );
+};
+
 const extractMatchWinnerOptions = (fixture) => {
   const values = Array.isArray(fixture?.odds?.bets?.[0]?.values)
     ? fixture.odds.bets[0].values
@@ -243,14 +253,9 @@ const buildTrendingCustomOdds = (fixtures = [], customEventsByFixture = {}) => {
     .slice(0, 4);
 };
 
-const buildHomeFeed = (fixtureMap = {}, customEventsByFixture = {}) => {
+const buildHomeFeed = (fixtureMap = {}, customEventsByFixture = {}, sportsdb = null) => {
   const fixtures = sortFixturesByKickoff(Object.values(fixtureMap || {})).slice(0, 18);
-  const spotlightFixture =
-    fixtures.find((fixture) => {
-      const fixtureId = fixture?.fixture?.id;
-      const currentEvents = customEventsByFixture[String(fixtureId)];
-      return Array.isArray(currentEvents) && currentEvents.length > 0;
-    }) || fixtures[0] || null;
+  const spotlightFixture = selectSpotlightFixture(fixtures, customEventsByFixture);
 
   return {
     generated_at: new Date().toISOString(),
@@ -273,6 +278,7 @@ const buildHomeFeed = (fixtureMap = {}, customEventsByFixture = {}) => {
     onboarding_steps: buildOnboardingSteps(),
     follow_options: getTopFollowOptions(fixtures),
     starter_slip: buildStarterSlip(fixtures),
+    sportsdb,
   };
 };
 
@@ -281,6 +287,7 @@ module.exports = {
   getFavoritePick,
   getUnderdogPick,
   sortFixturesByKickoff,
+  selectSpotlightFixture,
   buildStarterSlip,
   buildHomeFeed,
 };

@@ -5,6 +5,7 @@ var axios = require("axios");
 var verifyCache = require("../../middlewares/memcache");
 const { getErrorMessage } = require("../../utils/api");
 const { buildHomeFeed } = require("../../utils/homeFeed");
+const { getSportsDbPayload } = require("../../utils/sportsdb");
 
 const getDatacenterBaseUrl = (app) => `http://${ENDPOINT_SELETOR(app.get("env"))}`;
 
@@ -50,7 +51,13 @@ router.get("/homeFeed", verifyCache, async function (req, res, next) {
       .map((fixture) => fixture?.fixture?.id)
       .filter((fixtureId) => Number.isInteger(fixtureId));
     const customEventsByFixture = await getCustomEventsByFixture(req.app, fixtureIds);
-    const homeFeed = buildHomeFeed(fixtureMap, customEventsByFixture);
+    const sportsdb = await getSportsDbPayload({
+      fixtureMap,
+      customEventsByFixture,
+      cache: global.cache,
+      httpClient: axios,
+    });
+    const homeFeed = buildHomeFeed(fixtureMap, customEventsByFixture, sportsdb);
 
     global.cache.set(req.originalUrl, homeFeed, 30);
     return res.status(200).json(homeFeed);
