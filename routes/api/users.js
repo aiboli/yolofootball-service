@@ -8,6 +8,180 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
+const { calculateOrderOutcome } = require("../../utils/orderSettlement");
+
+const MAX_RECENT_ITEMS = 5;
+
+const getDatacenterBaseUrl = (app) =>
+  `http://${ENDPOINT_SELETOR(app.get("env"))}`;
+
+const serializeFixtureSummary = (fixtureDetails) => {
+  if (!fixtureDetails) {
+    return null;
+  }
+
+  return {
+    id: fixtureDetails.fixture?.id ?? null,
+    date: fixtureDetails.fixture?.date ?? null,
+    status: fixtureDetails.fixture?.status?.short ?? null,
+    league: fixtureDetails.league
+      ? {
+          id: fixtureDetails.league.id ?? null,
+          name: fixtureDetails.league.name ?? null,
+          logo: fixtureDetails.league.logo ?? null,
+        }
+      : null,
+    teams:
+      fixtureDetails.teams && fixtureDetails.teams.home && fixtureDetails.teams.away
+        ? {
+            home: {
+              id: fixtureDetails.teams.home.id ?? null,
+              name: fixtureDetails.teams.home.name ?? null,
+              logo: fixtureDetails.teams.home.logo ?? null,
+            },
+            away: {
+              id: fixtureDetails.teams.away.id ?? null,
+              name: fixtureDetails.teams.away.name ?? null,
+              logo: fixtureDetails.teams.away.logo ?? null,
+            },
+          }
+        : null,
+  };
+};
+
+const serializeSelectionDetail = (selection) => ({
+  fixtureId: selection.fixture_id,
+  betResult: selection.bet_result,
+  oddRate: selection.odd_rate,
+  fixtureState: selection.fixture_state || "notstarted",
+  market: selection.market || "match_winner",
+  selection: selection.selection || null,
+  fixtureResult: selection.fixture_result || "pending",
+  isSettled: !!selection.is_settled,
+  actualResult:
+    selection.actual_result !== undefined ? selection.actual_result : null,
+  fixture: serializeFixtureSummary(selection.fixture_details),
+});
+
+const serializeRecentOrder = (order) => ({
+  id: order.id,
+  orderDate: order.orderdate || null,
+  state: order.state || "pending",
+  orderType: order.order_type || "single",
+  selectionCount: order.selection_count || 1,
+  oddRate: Number(order.odd_rate || 0),
+  stake: Number(order.odd_mount || 0),
+  winReturn: Number(order.win_return || 0),
+  actualReturn: Number(order.actual_return || 0),
+  orderResult: order.order_result || "pending",
+  isSettled: !!order.is_settled,
+  settledWinReturn:
+    order.settled_win_return !== null && order.settled_win_return !== undefined
+      ? Number(order.settled_win_return)
+      : null,
+  fixture: serializeFixtureSummary(order.fixture_details),
+  selectionDetails: Array.isArray(order.selection_details)
+    ? order.selection_details.map(serializeSelectionDetail)
+    : [],
+});
+
+const serializeRecentCustomEvent = (event, fixtureMap) => ({
+  id: event.id,
+  fixtureId: Number(event.fixture_id),
+  fixtureState: event.fixture_state || "notstarted",
+  createdBy: event.created_by || null,
+  createdDate: event.create_date || null,
+  status: event.status || "active",
+  market: event.market || event?.odd_data?.market || "match_winner",
+  oddData: event.odd_data || null,
+  poolFund: Number(event.pool_fund || 0),
+  matchedPoolFund: Number(event.matched_pool_fund || 0),
+  investedPoolFund: Number(event.invested_pool_fund || 0),
+  actualReturn: Number(event.actual_return || 0),
+  associatedOrderIds: Array.isArray(event.associated_order_ids)
+    ? event.associated_order_ids
+    : [],
+  fixture: serializeFixtureSummary(fixtureMap[Number(event.fixture_id)]),
+});
+
+const buildUserProfilePayload = async (app, userRecord) => {
+  const orderIds = Array.isArray(userRecord.order_ids) ? userRecord.order_ids : [];
+  const customEventIds = Array.isArray(userRecord.created_bid_ids)
+    ? userRecord.created_bid_ids
+    : [];
+  const needsActivityHydration = orderIds.length > 0 || customEventIds.length > 0;
+
+  let fixtureMap = {};
+  if (needsActivityHydration) {
+    try {
+      const fixtureResult = await axios.get(`${getDatacenterBaseUrl(app)}/fixtures/`);
+      if (Array.isArray(fixtureResult?.data)) {
+        fixtureResult.data.forEach((fixture) => {
+          fixtureMap[fixture.fixture.id] = fixture;
+        });
+      }
+    } catch (error) {
+      fixtureMap = {};
+    }
+  }
+
+  let recentOrders = [];
+  if (orderIds.length > 0) {
+    try {
+      const orderResult = await axios.post(`${getDatacenterBaseUrl(app)}/order/orders`, {
+        ids: orderIds,
+      });
+      recentOrders = Array.isArray(orderResult?.data)
+        ? orderResult.data
+            .map((order) => calculateOrderOutcome(order, fixtureMap))
+            .sort((left, right) => Number(right.orderdate || 0) - Number(left.orderdate || 0))
+            .slice(0, MAX_RECENT_ITEMS)
+            .map(serializeRecentOrder)
+        : [];
+    } catch (error) {
+      recentOrders = [];
+    }
+  }
+
+  let recentCustomEvents = [];
+  if (customEventIds.length > 0) {
+    try {
+      const customEventResult = await axios.post(
+        `${getDatacenterBaseUrl(app)}/customevent/bulk`,
+        {
+          ids: customEventIds,
+        }
+      );
+      recentCustomEvents = Array.isArray(customEventResult?.data)
+        ? customEventResult.data
+            .sort(
+              (left, right) => Number(right.create_date || 0) - Number(left.create_date || 0)
+            )
+            .slice(0, MAX_RECENT_ITEMS)
+            .map((event) => serializeRecentCustomEvent(event, fixtureMap))
+        : [];
+    } catch (error) {
+      recentCustomEvents = [];
+    }
+  }
+
+  return {
+    userName: userRecord.user_name,
+    userEmail: userRecord.user_email,
+    userId: userRecord.id,
+    userOrderIds: orderIds,
+    userCreatedBidIds: customEventIds,
+    userBalance: userRecord.account_balance ?? userRecord.amount ?? 0,
+    createdDate: userRecord.created_date || null,
+    isValidUser: !!userRecord.is_valid_user,
+    preferredCulture: userRecord.customized_field?.prefered_culture || null,
+    walletId: userRecord.user_wallet_id || null,
+    orderCount: orderIds.length,
+    customEventCount: customEventIds.length,
+    recentOrders,
+    recentCustomEvents,
+  };
+};
 
 /* GET users listing. */
 router.post("/signup", async function (req, res, next) {
@@ -51,6 +225,7 @@ router.post("/signup", async function (req, res, next) {
       }
     );
     if (signupResult.status === 200) {
+      const userProfile = await buildUserProfilePayload(req.app, signupResult.data);
       const token = jwt.sign(
         {
           data: userData.username,
@@ -62,14 +237,7 @@ router.post("/signup", async function (req, res, next) {
         message: "succeed",
         redirectURL: userData.redirectURL,
         accessToken: token,
-        userProfile: {
-          userName: signupResult.data.user_name,
-          userEmail: signupResult.data.user_email || userData.email,
-          userId: signupResult.data.id,
-          userOrderIds: signupResult.data.order_ids || [],
-          userCreatedBidIds: signupResult.data.created_bid_ids || [],
-          userBalance: signupResult.data.account_balance ?? signupResult.data.amount,
-        },
+        userProfile,
       });
     }
 
@@ -122,14 +290,7 @@ router.post("/signin", async function (req, res, next) {
         message: "succeed",
         redirectURL: userData.redirectURL,
         accessToken: token,
-        userProfile: {
-          userName: result.data.user_name,
-          userEmail: result.data.user_email,
-          userId: result.data.id,
-          userOrderIds: result.data.order_ids || [],
-          userCreatedBidIds: result.data.created_bid_ids || [],
-          userBalance: result.data.account_balance ?? result.data.amount,
-        },
+        userProfile: await buildUserProfilePayload(req.app, result.data),
       });
   } catch (error) {
     return res.status(502).json({ message: getErrorMessage(error, "wrong user") });
@@ -150,16 +311,10 @@ router.get("/profile", async function (req, res, next) {
       `http://${ENDPOINT_SELETOR(req.app.get("env"))}/user?user_name=${userName}`
     );
     if (result.data && result.data.user_name) {
+      const userProfile = await buildUserProfilePayload(req.app, result.data);
       return res.status(200).json({
         message: "succeed",
-        userProfile: {
-          userName: result.data.user_name,
-          userEmail: result.data.user_email,
-          userId: result.data.id,
-          userOrderIds: result.data.order_ids || [],
-          userCreatedBidIds: result.data.created_bid_ids || [],
-          userBalance: result.data.account_balance ?? result.data.amount,
-        },
+        userProfile,
       });
     }
   } catch (error) {
@@ -174,3 +329,11 @@ router.get("/profile", async function (req, res, next) {
 });
 
 module.exports = router;
+module.exports._private = {
+  MAX_RECENT_ITEMS,
+  serializeFixtureSummary,
+  serializeSelectionDetail,
+  serializeRecentOrder,
+  serializeRecentCustomEvent,
+  buildUserProfilePayload,
+};
