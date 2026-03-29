@@ -21,7 +21,7 @@ const DEFAULT_GUIDES = [
     cta_label: "Explore custom odds",
   },
 ];
-const HOME_FEED_FIXTURE_LIMIT = 96;
+const HOME_FEED_FIXTURE_LIMIT = 48;
 
 const getFixtureTimestamp = (fixture) => {
   const parsedDate = new Date(fixture?.fixture?.date || 0).getTime();
