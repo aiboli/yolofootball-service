@@ -21,6 +21,7 @@ const DEFAULT_GUIDES = [
     cta_label: "Explore custom odds",
   },
 ];
+const HOME_FEED_FIXTURE_LIMIT = 96;
 
 const getFixtureTimestamp = (fixture) => {
   const parsedDate = new Date(fixture?.fixture?.date || 0).getTime();
@@ -254,7 +255,10 @@ const buildTrendingCustomOdds = (fixtures = [], customEventsByFixture = {}) => {
 };
 
 const buildHomeFeed = (fixtureMap = {}, customEventsByFixture = {}, sportsdb = null) => {
-  const fixtures = sortFixturesByKickoff(Object.values(fixtureMap || {})).slice(0, 18);
+  const fixtures = sortFixturesByKickoff(Object.values(fixtureMap || {})).slice(
+    0,
+    HOME_FEED_FIXTURE_LIMIT
+  );
   const spotlightFixture = selectSpotlightFixture(fixtures, customEventsByFixture);
 
   return {
