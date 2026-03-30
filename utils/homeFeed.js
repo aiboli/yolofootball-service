@@ -32,6 +32,43 @@ const sortFixturesByKickoff = (fixtures = []) => {
   return [...fixtures].sort((left, right) => getFixtureTimestamp(left) - getFixtureTimestamp(right));
 };
 
+const pickHomeFeedFixtures = (fixtures = [], limit = HOME_FEED_FIXTURE_LIMIT) => {
+  const sortedFixtures = sortFixturesByKickoff(fixtures);
+  if (sortedFixtures.length <= limit) {
+    return sortedFixtures;
+  }
+
+  const selectedFixtureIds = new Set();
+  const guaranteedLeagueFixtures = [];
+
+  sortedFixtures.forEach((fixture) => {
+    const fixtureId = fixture?.fixture?.id;
+    const leagueName = fixture?.league?.name;
+    if (!fixtureId || !leagueName || selectedFixtureIds.has(fixtureId)) {
+      return;
+    }
+
+    const hasLeagueRepresentative = guaranteedLeagueFixtures.some(
+      (currentFixture) => currentFixture?.league?.name === leagueName
+    );
+
+    if (!hasLeagueRepresentative) {
+      guaranteedLeagueFixtures.push(fixture);
+      selectedFixtureIds.add(fixtureId);
+    }
+  });
+
+  const remainingFixtures = sortedFixtures.filter((fixture) => {
+    const fixtureId = fixture?.fixture?.id;
+    return fixtureId && !selectedFixtureIds.has(fixtureId);
+  });
+
+  return guaranteedLeagueFixtures
+    .concat(remainingFixtures)
+    .slice(0, limit)
+    .sort((left, right) => getFixtureTimestamp(left) - getFixtureTimestamp(right));
+};
+
 const selectSpotlightFixture = (fixtures = [], customEventsByFixture = {}) => {
   return (
     fixtures.find((fixture) => {
@@ -255,10 +292,7 @@ const buildTrendingCustomOdds = (fixtures = [], customEventsByFixture = {}) => {
 };
 
 const buildHomeFeed = (fixtureMap = {}, customEventsByFixture = {}, sportsdb = null) => {
-  const fixtures = sortFixturesByKickoff(Object.values(fixtureMap || {})).slice(
-    0,
-    HOME_FEED_FIXTURE_LIMIT
-  );
+  const fixtures = pickHomeFeedFixtures(Object.values(fixtureMap || {}), HOME_FEED_FIXTURE_LIMIT);
   const spotlightFixture = selectSpotlightFixture(fixtures, customEventsByFixture);
 
   return {
@@ -290,6 +324,7 @@ module.exports = {
   extractMatchWinnerOptions,
   getFavoritePick,
   getUnderdogPick,
+  pickHomeFeedFixtures,
   sortFixturesByKickoff,
   selectSpotlightFixture,
   buildStarterSlip,
