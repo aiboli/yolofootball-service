@@ -89,6 +89,9 @@ const serializeRecentOrder = (order) => ({
   orderDate: order.orderdate || null,
   state: order.state || "pending",
   orderType: order.order_type || "single",
+  orderSource: order.order_source || "standard",
+  customEventId: order.custom_event_id || null,
+  counterpartyUserName: order.counterparty_user_name || null,
   selectionCount: order.selection_count || 1,
   oddRate: Number(order.odd_rate || 0),
   stake: Number(order.odd_mount || 0),
@@ -119,6 +122,21 @@ const serializeRecentCustomEvent = (event, fixtureMap) => ({
   matchedPoolFund: Number(event.matched_pool_fund || 0),
   investedPoolFund: Number(event.invested_pool_fund || 0),
   actualReturn: Number(event.actual_return || 0),
+  liabilityByResult:
+    event.liability_by_result && typeof event.liability_by_result === "object"
+      ? event.liability_by_result
+      : {},
+  maxStakeByResult:
+    event.max_stake_by_result && typeof event.max_stake_by_result === "object"
+      ? event.max_stake_by_result
+      : {},
+  remainingLiability: Number(event.remaining_liability || 0),
+  betCount: Number(event.bet_count || 0),
+  canAcceptBets: !!event.can_accept_bets,
+  settlementSummary:
+    event.settlement_summary && typeof event.settlement_summary === "object"
+      ? event.settlement_summary
+      : null,
   associatedOrderIds: Array.isArray(event.associated_order_ids)
     ? event.associated_order_ids
     : [],

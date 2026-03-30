@@ -145,8 +145,8 @@ const gradeSelection = (selection, fixtureMap) => {
     return {
       ...selectionWithFixture,
       fixture_state: getFixtureStatusShort(fixtureDetails) || selection.fixture_state,
-      fixture_result: "unknown",
-      is_settled: false,
+      fixture_result: "void",
+      is_settled: true,
     };
   }
 
