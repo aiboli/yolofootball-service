@@ -146,6 +146,50 @@ const mapFixtureCard = (fixture, customOddCount = 0) => {
   };
 };
 
+const mapHomeFeedFixture = (fixture) => {
+  const matchWinnerValues = Array.isArray(fixture?.odds?.bets?.[0]?.values)
+    ? fixture.odds.bets[0].values.slice(0, 3).map((value) => ({
+        value: value?.value || null,
+        odd: value?.odd || null,
+      }))
+    : [];
+
+  return {
+    fixture: {
+      id: fixture?.fixture?.id || null,
+      date: fixture?.fixture?.date || null,
+      status: {
+        short: fixture?.fixture?.status?.short || null,
+        long: fixture?.fixture?.status?.long || null,
+      },
+    },
+    league: {
+      id: fixture?.league?.id || null,
+      name: fixture?.league?.name || null,
+      logo: fixture?.league?.logo || null,
+    },
+    teams: {
+      home: {
+        id: fixture?.teams?.home?.id || null,
+        name: fixture?.teams?.home?.name || null,
+        logo: fixture?.teams?.home?.logo || null,
+      },
+      away: {
+        id: fixture?.teams?.away?.id || null,
+        name: fixture?.teams?.away?.name || null,
+        logo: fixture?.teams?.away?.logo || null,
+      },
+    },
+    odds: {
+      bets: [
+        {
+          values: matchWinnerValues,
+        },
+      ],
+    },
+  };
+};
+
 const getTopFollowOptions = (fixtures = []) => {
   const teamFrequency = new Map();
   const leagueFrequency = new Map();
@@ -297,7 +341,7 @@ const buildHomeFeed = (fixtureMap = {}, customEventsByFixture = {}, sportsdb = n
 
   return {
     generated_at: new Date().toISOString(),
-    fixtures,
+    fixtures: fixtures.map(mapHomeFeedFixture),
     spotlight: spotlightFixture
       ? mapFixtureCard(
           spotlightFixture,
@@ -329,4 +373,5 @@ module.exports = {
   selectSpotlightFixture,
   buildStarterSlip,
   buildHomeFeed,
+  mapHomeFeedFixture,
 };

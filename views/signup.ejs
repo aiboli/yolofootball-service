@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>
         <%= title %>
     </title>
@@ -9,21 +11,31 @@
 </head>
 
 <body>
-    <h1>
-        <%= title %>
-    </h1>
-    <p>Welcome to <%= title %>
-    </p>
-    <form action="/api/users/signup" method="POST">
-        <h5>lets create a new account:</h5>
-        <label for="user_name">user_name:</label><br>
-        <input type="text" id="user_name" name="user_name" value=""><br>
-        <label for="user_email">user_name:</label><br>
-        <input type="text" id="user_email" name="user_email" value="test@gmail.com"><br>
-        <label for="user_password">user_password:</label><br>
-        <input type="text" id="user_password" name="user_password" value=""><br><br>
-        <input type="submit" value="Submit">
-    </form>
+    <main class="page-shell">
+        <section class="page-card">
+            <h1>
+                <%= title %>
+            </h1>
+            <p>Welcome to <%= title %>
+            </p>
+            <form action="/api/users/signup" method="POST">
+                <h5>lets create a new account:</h5>
+                <div class="form-field">
+                    <label for="user_name">user_name:</label>
+                    <input type="text" id="user_name" name="user_name" value="" />
+                </div>
+                <div class="form-field">
+                    <label for="user_email">user_email:</label>
+                    <input type="text" id="user_email" name="user_email" value="test@gmail.com" />
+                </div>
+                <div class="form-field">
+                    <label for="user_password">user_password:</label>
+                    <input type="text" id="user_password" name="user_password" value="" />
+                </div>
+                <input type="submit" value="Submit" />
+            </form>
+        </section>
+    </main>
 </body>
 
 </html>

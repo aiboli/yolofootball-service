@@ -423,6 +423,55 @@ const searchSpotlightTeam = async ({ fixtureTeam, cache, httpClient = axios }) =
   }
 };
 
+const getSpotlightTeamCardForSide = async ({
+  side,
+  spotlightFixture,
+  foundation,
+  cache,
+  httpClient = axios,
+}) => {
+  const fixtureTeam = spotlightFixture?.teams?.[side];
+  let matchedTeam = resolveMatchedTeam(fixtureTeam, foundation);
+  if (!matchedTeam) {
+    matchedTeam = await searchSpotlightTeam({
+      fixtureTeam,
+      cache,
+      httpClient,
+    });
+  }
+
+  if (!matchedTeam) {
+    return {
+      card: null,
+      hasEventError: false,
+      hasSpotlightGap: true,
+    };
+  }
+
+  const eventBundle = await getTeamEventsBundle({
+    sportsDbTeamId: matchedTeam.idTeam,
+    cache,
+    httpClient,
+  });
+  const tableEntry =
+    foundation?.tableByApiFootballId?.[String(matchedTeam.idAPIfootball)] ||
+    foundation?.tableByNormalizedTeamName?.[normalizeLookupValue(matchedTeam.strTeam)] ||
+    null;
+
+  return {
+    card: buildSpotlightTeamCard({
+      fixtureId: spotlightFixture?.fixture?.id,
+      side,
+      fixtureTeam,
+      matchedTeam,
+      tableEntry,
+      eventBundle,
+    }),
+    hasEventError: !!eventBundle?.has_error,
+    hasSpotlightGap: !tableEntry,
+  };
+};
+
 const getSportsDbPayload = async ({
   fixtureMap = {},
   customEventsByFixture = {},
@@ -444,56 +493,20 @@ const getSportsDbPayload = async ({
       });
     }
 
-    const spotlightCards = [];
-    let hasSpotlightGap = false;
-    let hasEventError = false;
-
-    for (const side of ["home", "away"]) {
-      const fixtureTeam = spotlightFixture?.teams?.[side];
-      let matchedTeam = resolveMatchedTeam(fixtureTeam, foundation);
-      if (!matchedTeam) {
-        matchedTeam = await searchSpotlightTeam({
-          fixtureTeam,
+    const spotlightResults = await Promise.all(
+      ["home", "away"].map((side) =>
+        getSpotlightTeamCardForSide({
+          side,
+          spotlightFixture,
+          foundation,
           cache,
           httpClient,
-        });
-      }
-
-      if (!matchedTeam) {
-        hasSpotlightGap = true;
-        continue;
-      }
-
-      const eventBundle = await getTeamEventsBundle({
-        sportsDbTeamId: matchedTeam.idTeam,
-        cache,
-        httpClient,
-      });
-      const tableEntry =
-        foundation?.tableByApiFootballId?.[String(matchedTeam.idAPIfootball)] ||
-        foundation?.tableByNormalizedTeamName?.[normalizeLookupValue(matchedTeam.strTeam)] ||
-        null;
-
-      if (eventBundle?.has_error) {
-        hasEventError = true;
-      }
-      if (!tableEntry) {
-        hasSpotlightGap = true;
-      }
-
-      const card = buildSpotlightTeamCard({
-        fixtureId: spotlightFixture?.fixture?.id,
-        side,
-        fixtureTeam,
-        matchedTeam,
-        tableEntry,
-        eventBundle,
-      });
-
-      if (card) {
-        spotlightCards.push(card);
-      }
-    }
+        })
+      )
+    );
+    const spotlightCards = spotlightResults.map((result) => result.card).filter(Boolean);
+    const hasSpotlightGap = spotlightResults.some((result) => result.hasSpotlightGap);
+    const hasEventError = spotlightResults.some((result) => result.hasEventError);
 
     let status = foundation.status;
     if (status === "healthy" && (hasSpotlightGap || hasEventError || spotlightCards.length < 2)) {

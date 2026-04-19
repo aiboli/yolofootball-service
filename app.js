@@ -23,9 +23,14 @@ var DEFAULT_ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "http://localhost:3001",
 ];
+var configuredAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(function(origin) {
+    return origin.trim();
+  })
+  .filter(Boolean);
 var allowedOrigins = new Set(
-  (process.env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(","))
-    .split(",")
+  DEFAULT_ALLOWED_ORIGINS.concat(configuredAllowedOrigins)
     .map(function(origin) {
       return origin.trim();
     })
