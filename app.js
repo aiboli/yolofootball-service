@@ -17,41 +17,48 @@ var predictionAPIRouter = require("./routes/api/predictions");
 var notificationAPIRouter = require("./routes/api/notifications");
 
 var app = express();
-// view engine setup
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "ejs");
+var DEFAULT_ALLOWED_ORIGINS = [
+  "https://yolofootball.com",
+  "https://www.yolofootball.com",
+  "http://localhost:3000",
+  "http://localhost:3001",
+];
+var allowedOrigins = new Set(
+  (process.env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(","))
+    .split(",")
+    .map(function(origin) {
+      return origin.trim();
+    })
+    .filter(Boolean)
+);
 
-app.use(logger("dev"));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
+var applyCorsHeaders = function(req, res) {
+  var requestOrigin = req.headers.origin;
 
-// Add headers before the routes are defined
-// const allowedOrigins = new Set([
-//   "https://www.yolofootball.com",
-//   "http://localhost:3001",
-// ]);
-
-app.use(function(req, res, next) {
-  // const requestOrigin = req.headers.origin;
-  // if (requestOrigin && allowedOrigins.has(requestOrigin)) {
-  //   res.setHeader("Access-Control-Allow-Origin", requestOrigin);
-  // }
-
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (requestOrigin && allowedOrigins.has(requestOrigin)) {
+    res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+  }
 
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, OPTIONS, PUT, PATCH, DELETE"
   );
-
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "X-Requested-With,content-type,Authorization"
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
   );
+  res.setHeader("Access-Control-Max-Age", "86400");
+};
+// view engine setup
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "ejs");
 
-  res.setHeader("Access-Control-Allow-Credentials", true);
+app.use(logger("dev"));
+
+app.use(function(req, res, next) {
+  applyCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
@@ -59,6 +66,11 @@ app.use(function(req, res, next) {
 
   next();
 });
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
