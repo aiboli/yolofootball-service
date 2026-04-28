@@ -5,27 +5,13 @@ var axios = require("axios");
 const authentication = require("../../middlewares/authentication");
 const { getUserDataFromRequest } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
+const { fetchFixtureMap } = require("../../utils/fixtureMap");
 const {
   calculateCombinedOdd,
   normalizeOrderPayload,
   isOrderPayloadValid,
   calculateOrderOutcome,
 } = require("../../utils/orderSettlement");
-
-const fetchFixtureMap = async (app) => {
-  const fixtureResult = await axios.get(
-    `http://${ENDPOINT_SELETOR(app.get("env"))}/fixtures/`
-  );
-  const fixtureMap = {};
-
-  if (fixtureResult && Array.isArray(fixtureResult.data)) {
-    fixtureResult.data.forEach((fixture) => {
-      fixtureMap[fixture.fixture.id] = fixture;
-    });
-  }
-
-  return fixtureMap;
-};
 
 const updateUserOnboardingState = async (app, userName, onboardingState) => {
   if (!userName) {

@@ -3,6 +3,7 @@ var express = require("express");
 var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
+var compression = require("compression");
 var NodeCache = require("node-cache");
 global.cache = new NodeCache();
 //console.log(global.cache);
@@ -61,6 +62,7 @@ app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
 app.use(logger("dev"));
+app.use(compression());
 
 app.use(function(req, res, next) {
   applyCorsHeaders(req, res);

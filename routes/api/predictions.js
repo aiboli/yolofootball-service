@@ -5,6 +5,7 @@ var axios = require("axios");
 const authentication = require("../../middlewares/authentication");
 const { getUserDataFromRequest } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
+const { fetchFixtureMap } = require("../../utils/fixtureMap");
 const {
   buildPredictionLeaderboard,
   buildPredictionSummary,
@@ -20,19 +21,6 @@ const fetchUserRecord = async (app, userName) => {
     `${getDatacenterBaseUrl(app)}/user?user_name=${encodeURIComponent(userName)}`
   );
   return result?.data || null;
-};
-
-const fetchFixtureMap = async (app) => {
-  const fixtureResult = await axios.get(`${getDatacenterBaseUrl(app)}/fixtures/`);
-  const fixtureMap = {};
-
-  if (fixtureResult && Array.isArray(fixtureResult.data)) {
-    fixtureResult.data.forEach((fixture) => {
-      fixtureMap[fixture.fixture.id] = fixture;
-    });
-  }
-
-  return fixtureMap;
 };
 
 const updateUserRecord = async (app, userName, payload) => {

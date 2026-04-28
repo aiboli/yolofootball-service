@@ -9,6 +9,7 @@ const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
 const { calculateOrderOutcome } = require("../../utils/orderSettlement");
+const { fetchFixtureMap } = require("../../utils/fixtureMap");
 const {
   buildPredictionSummary,
   hydratePredictionHistory,
@@ -207,12 +208,7 @@ const buildUserProfilePayload = async (app, userRecord) => {
   let fixtureMap = {};
   if (needsActivityHydration) {
     try {
-      const fixtureResult = await axios.get(`${getDatacenterBaseUrl(app)}/fixtures/`);
-      if (Array.isArray(fixtureResult?.data)) {
-        fixtureResult.data.forEach((fixture) => {
-          fixtureMap[fixture.fixture.id] = fixture;
-        });
-      }
+      fixtureMap = await fetchFixtureMap(app);
     } catch (error) {
       fixtureMap = {};
     }

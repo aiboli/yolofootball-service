@@ -5,6 +5,7 @@ var axios = require("axios");
 const authentication = require("../../middlewares/authentication");
 const { getUserDataFromRequest } = require("../../utils/auth");
 const { getErrorMessage } = require("../../utils/api");
+const { fetchFixtureMap } = require("../../utils/fixtureMap");
 const {
   ACTIVE_EVENT_STATUS,
   SUPPORTED_STATUSES,
@@ -30,19 +31,6 @@ const fetchUserProfile = async (app, userName) => {
   );
 
   return userProfile?.data;
-};
-
-const fetchFixtureMap = async (app) => {
-  const fixtureResult = await axios.get(`${getDatacenterRootUrl(app)}/fixtures/`);
-  const fixtureMap = {};
-
-  if (fixtureResult && Array.isArray(fixtureResult.data)) {
-    fixtureResult.data.forEach((fixture) => {
-      fixtureMap[fixture.fixture.id] = fixture;
-    });
-  }
-
-  return fixtureMap;
 };
 
 const updateUserOnboardingState = async (app, userName, onboardingState) => {
